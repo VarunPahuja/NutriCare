@@ -2,14 +2,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
-import StatCard from '@/components/StatCard';
 import AdherenceHeatmap from '@/components/AdherenceHeatmap';
 import CurrentPlanOverview from '@/components/CurrentPlanOverview';
 import MealPlanFlow from '@/components/MealPlanFlow';
 import RecentActivities from '@/components/RecentActivities';
 import FloatingAction from '@/components/FloatingAction';
 import { Button } from '@/components/ui/button';
-import { Book, Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { Book, ArrowRight } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -29,7 +28,7 @@ const Index = () => {
       <Navbar />
       
       <main className="container mx-auto px-4 py-6 relative z-10">
-        {/* Header section with title and key stats */}
+        {/* Header section with title */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
             <h1 className="text-3xl font-bold gradient-text">
@@ -46,31 +45,6 @@ const Index = () => {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard 
-              title="Total Plans Created" 
-              value="145"
-              icon={Book}
-              description="Nutrition plans created this year"
-              trend={{ value: 12, isPositive: true }}
-            />
-            <StatCard 
-              title="Active Consultations" 
-              value="5"
-              icon={Users}
-              description="Ongoing nutritionist sessions"
-              trend={{ value: 2, isPositive: true }}
-            />
-            <StatCard 
-              title="Adherence Score" 
-              value="87%"
-              icon={TrendingUp}
-              description="Overall plan adherence"
-              trend={{ value: 4, isPositive: true }}
-              className="bg-gradient-to-br from-fitness-muted to-fitness-secondary border-fitness-primary/30"
-            />
           </div>
         </div>
         
