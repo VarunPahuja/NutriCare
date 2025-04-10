@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { PlusCircle, Download, FileText } from 'lucide-react';
+import { PlusCircle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 

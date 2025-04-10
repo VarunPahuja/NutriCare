@@ -4,7 +4,8 @@ import Navbar from '@/components/Navbar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import FloatingAction from '@/components/FloatingAction';
-import { Calendar, Clock, Utensils, Apple, Fire } from 'lucide-react';
+import { Calendar, Clock, Utensils, Apple, Flame } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const mealPlans = [
   {
@@ -79,7 +80,7 @@ const MealPlans = () => {
                     <div className="flex flex-col space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center space-x-2 text-sm">
-                          <Fire className="h-4 w-4 text-fitness-primary" />
+                          <Flame className="h-4 w-4 text-fitness-primary" />
                           <span>{plan.calories} calories</span>
                         </div>
                         <div className="flex items-center space-x-2 text-sm">
@@ -137,7 +138,7 @@ const MealPlans = () => {
                     <div className="flex flex-col space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center space-x-2 text-sm">
-                          <Fire className="h-4 w-4 text-fitness-primary" />
+                          <Flame className="h-4 w-4 text-fitness-primary" />
                           <span>{plan.calories} calories</span>
                         </div>
                         <div className="flex items-center space-x-2 text-sm">
