@@ -3,39 +3,47 @@ import React from 'react';
 import { Bell, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link, useLocation } from 'react-router-dom';
 
 const tabs = [
-  { name: "Overview", active: false },
-  { name: "Meal Plans", active: true },
-  { name: "Progress", active: false },
-  { name: "Nutrition Tips", active: false },
-  { name: "Settings", active: false },
+  { name: "Overview", path: "/" },
+  { name: "Meal Plans", path: "/meal-plans" },
+  { name: "Progress", path: "/progress" },
+  { name: "Nutrition Tips", path: "/nutrition-tips" },
+  { name: "Settings", path: "/settings" },
 ];
 
 const Navbar = () => {
+  const location = useLocation();
+  
   return (
     <div className="w-full px-4 py-2 flex items-center justify-between bg-fitness-secondary/50 backdrop-blur-md border-b border-fitness-border sticky top-0 z-50">
       {/* Left side - Logo */}
       <div className="flex items-center">
         <div className="font-bold text-xl mr-8">
-          <span className="text-fitness-primary">Fit</span>Flow
+          <span className="text-fitness-primary">Nutri</span>Care
         </div>
         
         {/* Navigation tabs */}
         <div className="hidden md:flex items-center space-x-2">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.name}
-              variant={tab.active ? "default" : "ghost"}
-              className={`rounded-lg px-3 py-1 ${
-                tab.active 
-                ? "bg-fitness-primary text-white" 
-                : "text-gray-300 hover:text-white hover:bg-fitness-muted"
-              }`}
-            >
-              {tab.name}
-            </Button>
-          ))}
+          {tabs.map((tab) => {
+            const isActive = location.pathname === tab.path || 
+                           (location.pathname === '/' && tab.path === '/');
+            return (
+              <Button
+                key={tab.name}
+                variant={isActive ? "default" : "ghost"}
+                className={`rounded-lg px-3 py-1 ${
+                  isActive 
+                  ? "bg-fitness-primary text-white" 
+                  : "text-gray-300 hover:text-white hover:bg-fitness-muted"
+                }`}
+                asChild
+              >
+                <Link to={tab.path}>{tab.name}</Link>
+              </Button>
+            );
+          })}
         </div>
       </div>
       
@@ -60,10 +68,12 @@ const Navbar = () => {
             <p className="text-sm font-medium">Hi, Anna Green</p>
             <p className="text-xs text-gray-400">Premium Plan</p>
           </div>
-          <Avatar className="h-8 w-8 animate-pulse-glow">
-            <AvatarImage src="https://i.pravatar.cc/100?img=36" alt="Anna Green" />
-            <AvatarFallback>AG</AvatarFallback>
-          </Avatar>
+          <Link to="/settings">
+            <Avatar className="h-8 w-8 animate-pulse-glow">
+              <AvatarImage src="https://i.pravatar.cc/100?img=36" alt="Anna Green" />
+              <AvatarFallback>AG</AvatarFallback>
+            </Avatar>
+          </Link>
         </div>
       </div>
     </div>
