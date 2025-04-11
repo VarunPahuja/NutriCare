@@ -11,6 +11,8 @@ import NutritionTips from "./pages/NutritionTips";
 import Settings from "./pages/Settings";
 import SignIn from "./pages/SignIn";
 import NotFound from "./pages/NotFound";
+import MyInsights from "./pages/MyInsights";
+import TrackWorkout from "./pages/TrackWorkout";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +29,8 @@ const App = () => (
           <Route path="/progress" element={<Progress />} />
           <Route path="/nutrition-tips" element={<NutritionTips />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/my-insights" element={<MyInsights />} />
+          <Route path="/track-workout" element={<TrackWorkout />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

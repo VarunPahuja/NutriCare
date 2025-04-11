@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, Search, User, Activity, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useLocation } from 'react-router-dom';
@@ -8,6 +8,8 @@ import { Link, useLocation } from 'react-router-dom';
 const tabs = [
   { name: "Overview", path: "/" },
   { name: "Meal Plans", path: "/meal-plans" },
+  { name: "My Insights", path: "/my-insights", icon: BarChart2 },
+  { name: "Track Workout", path: "/track-workout", icon: Activity },
   { name: "Progress", path: "/progress" },
   { name: "Nutrition Tips", path: "/nutrition-tips" },
   { name: "Settings", path: "/settings" },
@@ -29,6 +31,8 @@ const Navbar = () => {
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.path || 
                            (location.pathname === '/' && tab.path === '/');
+            const Icon = tab.icon;
+            
             return (
               <Button
                 key={tab.name}
@@ -40,7 +44,10 @@ const Navbar = () => {
                 }`}
                 asChild
               >
-                <Link to={tab.path}>{tab.name}</Link>
+                <Link to={tab.path} className="flex items-center gap-1">
+                  {Icon && <Icon className="h-4 w-4" />}
+                  {tab.name}
+                </Link>
               </Button>
             );
           })}
