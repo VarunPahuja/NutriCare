@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { 
   Card, 
@@ -31,16 +30,45 @@ import {
 } from 'lucide-react';
 import { toast } from "sonner";
 
+export interface Exercise {
+  id: number;
+  name: string;
+  sets: number;
+  reps: number;
+  weight: number;
+}
+
+export interface WorkoutSession {
+  id: number;
+  date: string;
+  type: string;
+  duration: number;
+  exercises: Exercise[];
+}
+
+const WORKOUT_HISTORY_KEY = 'nutricare_workout_history';
+
 const TrackWorkout = () => {
   const [workoutType, setWorkoutType] = useState('strength');
   const [timerActive, setTimerActive] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
-  const [exercises, setExercises] = useState([
+  const [exercises, setExercises] = useState<Exercise[]>([
     { id: 1, name: 'Squats', sets: 3, reps: 12, weight: 135 },
     { id: 2, name: 'Bench Press', sets: 3, reps: 10, weight: 155 },
   ]);
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
 
-  // Handle timer
+  useEffect(() => {
+    const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
+    if (savedHistory) {
+      try {
+        setWorkoutHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Failed to parse workout history:', e);
+      }
+    }
+  }, []);
+
   React.useEffect(() => {
     let interval: number | undefined;
     if (timerActive) {
@@ -69,26 +97,37 @@ const TrackWorkout = () => {
   };
 
   const handleSaveWorkout = () => {
+    const newWorkout: WorkoutSession = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      type: workoutType,
+      duration: timerSeconds,
+      exercises: [...exercises]
+    };
+    
+    const updatedHistory = [...workoutHistory, newWorkout];
+    setWorkoutHistory(updatedHistory);
+    
+    localStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updatedHistory));
+    
     toast.success("Workout saved successfully!", {
-      description: `${exercises.length} exercises recorded in ${formatTime(timerSeconds)}.`,
+      description: `${exercises.length} exercises recorded in ${formatTime(timerSeconds)}. Data available in My Insights.`,
       duration: 4000,
     });
+    
     setTimerSeconds(0);
     setTimerActive(false);
   };
 
-  // Background decoration elements
   const BlurredCircle = ({ className }: { className: string }) => (
     <div className={`absolute rounded-full mix-blend-overlay blur-3xl ${className}`}></div>
   );
 
   return (
     <div className="min-h-screen w-full bg-fitness-background text-white relative overflow-x-hidden">
-      {/* Background effects */}
       <BlurredCircle className="w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10" />
       <BlurredCircle className="w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10" />
       
-      {/* Navigation */}
       <Navbar />
       
       <main className="container mx-auto px-4 py-6 relative z-10">
@@ -100,7 +139,6 @@ const TrackWorkout = () => {
           </div>
         </div>
 
-        {/* Workout Type Selection */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="fitness-card col-span-1">
             <CardHeader>
@@ -136,7 +174,6 @@ const TrackWorkout = () => {
             </CardContent>
           </Card>
 
-          {/* Workout Timer */}
           <Card className="fitness-card col-span-1">
             <CardHeader>
               <CardTitle>Workout Timer</CardTitle>
@@ -165,7 +202,6 @@ const TrackWorkout = () => {
             </CardFooter>
           </Card>
 
-          {/* Save Workout */}
           <Card className="fitness-card col-span-1">
             <CardHeader>
               <CardTitle>Complete Workout</CardTitle>
@@ -183,7 +219,6 @@ const TrackWorkout = () => {
           </Card>
         </div>
 
-        {/* Exercise List */}
         <Card className="fitness-card">
           <CardHeader>
             <div className="flex justify-between items-center">
