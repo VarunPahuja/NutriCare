@@ -1,17 +1,18 @@
 
 import React from 'react';
-import { Bell, Search, User, Activity, BarChart2 } from 'lucide-react';
+import { Bell, Search, User, Activity, BarChart2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useLocation } from 'react-router-dom';
 
 const tabs = [
-  { name: "Overview", path: "/" },
+  { name: "Overview", path: "/dashboard" },
   { name: "Meal Plans", path: "/meal-plans" },
   { name: "My Insights", path: "/my-insights", icon: BarChart2 },
   { name: "Track Workout", path: "/track-workout", icon: Activity },
   { name: "Progress", path: "/progress" },
   { name: "Nutrition Tips", path: "/nutrition-tips" },
+  { name: "Wellness Crew", path: "/wellness-crew", icon: Users },
   { name: "Settings", path: "/settings" },
 ];
 
@@ -29,8 +30,7 @@ const Navbar = () => {
         {/* Navigation tabs */}
         <div className="hidden md:flex items-center space-x-2">
           {tabs.map((tab) => {
-            const isActive = location.pathname === tab.path || 
-                           (location.pathname === '/' && tab.path === '/');
+            const isActive = location.pathname === tab.path;
             const Icon = tab.icon;
             
             return (
@@ -76,7 +76,7 @@ const Navbar = () => {
             <p className="text-xs text-gray-400">Premium Plan</p>
           </div>
           <Link to="/settings">
-            <Avatar className="h-8 w-8 animate-pulse-glow">
+            <Avatar className="h-8 w-8">
               <AvatarImage src="https://i.pravatar.cc/100?img=36" alt="Anna Green" />
               <AvatarFallback>AG</AvatarFallback>
             </Avatar>

@@ -25,7 +25,7 @@ const SignIn = () => {
         title: "Signed in successfully",
         description: "Welcome to NutriCare!",
       });
-      navigate('/');
+      navigate('/dashboard');
     }, 1500);
   };
 
