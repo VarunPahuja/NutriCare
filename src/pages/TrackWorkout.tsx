@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { 
@@ -26,9 +27,13 @@ import {
   Play, 
   Pause, 
   RotateCcw,
-  Save
+  Save,
+  Download,
+  Upload
 } from 'lucide-react';
 import { toast } from "sonner";
+import { fetchWorkoutDataFromCSV, saveWorkoutToSupabase, fetchWorkoutsFromSupabase } from '@/services/workoutService';
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Exercise {
   id: number;
@@ -57,17 +62,66 @@ const TrackWorkout = () => {
     { id: 2, name: 'Bench Press', sets: 3, reps: 10, weight: 155 },
   ]);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Check authentication status
   useEffect(() => {
-    const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
-    if (savedHistory) {
-      try {
-        setWorkoutHistory(JSON.parse(savedHistory));
-      } catch (e) {
-        console.error('Failed to parse workout history:', e);
-      }
-    }
+    const checkAuthStatus = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+    };
+    
+    checkAuthStatus();
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Load workout history
+  useEffect(() => {
+    const loadWorkoutHistory = async () => {
+      if (isAuthenticated) {
+        // Try to load from Supabase database first
+        const supabaseWorkouts = await fetchWorkoutsFromSupabase();
+        
+        if (supabaseWorkouts.length > 0) {
+          setWorkoutHistory(supabaseWorkouts);
+        } else {
+          // Try CSV as a fallback
+          const csvWorkouts = await fetchWorkoutDataFromCSV();
+          if (csvWorkouts.length > 0) {
+            setWorkoutHistory(csvWorkouts);
+          } else {
+            // Use local storage as last resort
+            const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
+            if (savedHistory) {
+              try {
+                setWorkoutHistory(JSON.parse(savedHistory));
+              } catch (e) {
+                console.error('Failed to parse workout history:', e);
+              }
+            }
+          }
+        }
+      } else {
+        // If not authenticated, just use localStorage
+        const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
+        if (savedHistory) {
+          try {
+            setWorkoutHistory(JSON.parse(savedHistory));
+          } catch (e) {
+            console.error('Failed to parse workout history:', e);
+          }
+        }
+      }
+    };
+
+    loadWorkoutHistory();
+  }, [isAuthenticated]);
 
   React.useEffect(() => {
     let interval: number | undefined;
@@ -96,7 +150,7 @@ const TrackWorkout = () => {
     setExercises(exercises.filter(exercise => exercise.id !== id));
   };
 
-  const handleSaveWorkout = () => {
+  const handleSaveWorkout = async () => {
     const newWorkout: WorkoutSession = {
       id: Date.now(),
       date: new Date().toISOString(),
@@ -110,13 +164,34 @@ const TrackWorkout = () => {
     
     localStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updatedHistory));
     
-    toast.success("Workout saved successfully!", {
-      description: `${exercises.length} exercises recorded in ${formatTime(timerSeconds)}. Data available in My Insights.`,
-      duration: 4000,
-    });
+    // If authenticated, save to Supabase as well
+    if (isAuthenticated) {
+      await saveWorkoutToSupabase(newWorkout);
+    } else {
+      toast.success("Workout saved successfully!", {
+        description: `${exercises.length} exercises recorded in ${formatTime(timerSeconds)}. Data available in My Insights.`,
+        duration: 4000,
+      });
+    }
     
     setTimerSeconds(0);
     setTimerActive(false);
+  };
+
+  const handleImportFromCSV = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please log in to import workout data");
+      return;
+    }
+    
+    const csvWorkouts = await fetchWorkoutDataFromCSV();
+    
+    if (csvWorkouts.length > 0) {
+      setWorkoutHistory(csvWorkouts);
+      toast.success(`Imported ${csvWorkouts.length} workouts from CSV`);
+    } else {
+      toast.error("No workout data found in CSV or error occurred");
+    }
   };
 
   const BlurredCircle = ({ className }: { className: string }) => (
@@ -136,6 +211,17 @@ const TrackWorkout = () => {
             <h1 className="text-3xl font-bold gradient-text">
               Track Workout
             </h1>
+            
+            {isAuthenticated && (
+              <Button 
+                variant="outline" 
+                className="mt-4 md:mt-0"
+                onClick={handleImportFromCSV}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Import from CSV
+              </Button>
+            )}
           </div>
         </div>
 
