@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { WorkoutSession, Exercise } from "@/pages/TrackWorkout";
 import { toast } from "sonner";
+import { Json } from "@/integrations/supabase/types";
 
 // Function to fetch and parse CSV workout data from Supabase storage
 export const fetchWorkoutDataFromCSV = async (): Promise<WorkoutSession[]> => {
@@ -60,12 +61,23 @@ export const fetchWorkoutDataFromCSV = async (): Promise<WorkoutSession[]> => {
 // Function to save workout data to Supabase database
 export const saveWorkoutToSupabase = async (workout: WorkoutSession): Promise<boolean> => {
   try {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    
+    if (!userId) {
+      toast.error("You must be logged in to save workouts");
+      return false;
+    }
+    
+    // Convert Exercise[] to Json type by using JSON.stringify and then parsing it
+    // This satisfies TypeScript's type checking while preserving the data structure
+    const exercisesJson = JSON.parse(JSON.stringify(workout.exercises)) as Json;
+    
     const { error } = await supabase.from('workouts').insert({
-      user_id: (await supabase.auth.getUser()).data.user?.id,
+      user_id: userId,
       date: new Date(workout.date).toISOString(),
       type: workout.type,
       duration: workout.duration,
-      exercises: workout.exercises
+      exercises: exercisesJson
     });
     
     if (error) {
@@ -96,13 +108,18 @@ export const fetchWorkoutsFromSupabase = async (): Promise<WorkoutSession[]> => 
     }
     
     // Transform database records to WorkoutSession format
-    const workouts: WorkoutSession[] = data.map(record => ({
-      id: parseInt(record.id.slice(0, 8), 16), // Create a numeric ID from UUID
-      date: record.date,
-      type: record.type,
-      duration: record.duration,
-      exercises: record.exercises as Exercise[]
-    }));
+    const workouts: WorkoutSession[] = data.map(record => {
+      // Safely cast the exercises field from Json to Exercise[]
+      const exercises = (record.exercises as unknown) as Exercise[];
+      
+      return {
+        id: parseInt(record.id.slice(0, 8), 16), // Create a numeric ID from UUID
+        date: record.date,
+        type: record.type,
+        duration: record.duration,
+        exercises: exercises || []
+      };
+    });
     
     return workouts;
   } catch (error) {
