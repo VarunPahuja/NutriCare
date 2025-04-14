@@ -48,6 +48,18 @@ const Index = () => {
           </div>
         </div>
         
+        {/* Google Sheets Embed */}
+        <div className="mb-8 fitness-card p-6">
+          <h2 className="text-xl font-bold mb-4 header-underline">Workout Analytics Dashboard</h2>
+          <div className="w-full h-[600px] rounded-lg overflow-hidden bg-white">
+            <iframe 
+              src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSPtKdsZzXADTZ0h8v87aWH8IK7xRf5i57CwlFWCl1HjMnrnjGY61LQxisRGxkPwCUX6x9xdtV28pbg/pubhtml?gid=1016090080&amp;single=true&amp;widget=true&amp;headers=false"
+              className="w-full h-full border-0"
+              title="Workout Analytics Dashboard"
+            ></iframe>
+          </div>
+        </div>
+        
         {/* Main dashboard grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-1">
