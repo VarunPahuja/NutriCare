@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { 
@@ -7,25 +6,14 @@ import {
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer 
-} from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartPie, BarChart2, TrendingUp, Calendar, Dumbbell, Timer } from 'lucide-react';
+import { ChartPie, BarChart2, TrendingUp, Calendar, Dumbbell, Timer, Database } from 'lucide-react';
 import { format, parseISO, subDays } from 'date-fns';
 import { WorkoutSession } from './TrackWorkout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { fetchWorkoutsFromSupabase, fetchWorkoutDataFromCSV } from '@/services/workoutService';
 import { supabase } from "@/integrations/supabase/client";
+import WorkoutDataCharts from '@/components/insights/WorkoutDataCharts';
 
 const MyInsights = () => {
   // State for workout data
@@ -191,8 +179,8 @@ const MyInsights = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="workouts" className="w-full">
-          <TabsList className="grid w-full md:w-3/4 lg:w-1/2 grid-cols-4 mb-8">
+        <Tabs defaultValue="supabase" className="w-full">
+          <TabsList className="grid w-full md:w-3/4 lg:w-1/2 grid-cols-5 mb-8">
             <TabsTrigger value="nutrition" className="flex gap-2 items-center">
               <ChartPie className="h-4 w-4" /> Nutrition
             </TabsTrigger>
@@ -204,6 +192,9 @@ const MyInsights = () => {
             </TabsTrigger>
             <TabsTrigger value="workouts" className="flex gap-2 items-center">
               <Dumbbell className="h-4 w-4" /> Workouts
+            </TabsTrigger>
+            <TabsTrigger value="supabase" className="flex gap-2 items-center">
+              <Database className="h-4 w-4" /> My Data
             </TabsTrigger>
           </TabsList>
           
@@ -427,6 +418,19 @@ const MyInsights = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          
+          {/* Supabase Workout Data Tab */}
+          <TabsContent value="supabase">
+            <Card className="fitness-card mb-6">
+              <CardHeader>
+                <CardTitle>My Workout Analytics</CardTitle>
+                <CardDescription>Insights from your Supabase workout data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <WorkoutDataCharts />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

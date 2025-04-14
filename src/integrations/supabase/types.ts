@@ -11,31 +11,28 @@ export type Database = {
     Tables: {
       workouts: {
         Row: {
-          created_at: string
+          comment: string | null
           date: string
-          duration: number
-          exercises: Json | null
-          id: string
-          type: string
-          user_id: string
+          exercise_name: string
+          id: number
+          set_repetitions: number
+          set_weight: number
         }
         Insert: {
-          created_at?: string
-          date?: string
-          duration: number
-          exercises?: Json | null
-          id?: string
-          type: string
-          user_id: string
+          comment?: string | null
+          date: string
+          exercise_name: string
+          id?: never
+          set_repetitions: number
+          set_weight: number
         }
         Update: {
-          created_at?: string
+          comment?: string | null
           date?: string
-          duration?: number
-          exercises?: Json | null
-          id?: string
-          type?: string
-          user_id?: string
+          exercise_name?: string
+          id?: never
+          set_repetitions?: number
+          set_weight?: number
         }
         Relationships: []
       }
