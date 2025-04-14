@@ -14,6 +14,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { fetchWorkoutsFromSupabase, fetchWorkoutDataFromCSV } from '@/services/workoutService';
 import { supabase } from "@/integrations/supabase/client";
 import WorkoutDataCharts from '@/components/insights/WorkoutDataCharts';
+import { 
+  ResponsiveContainer, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  LineChart, 
+  Line 
+} from 'recharts';
 
 const MyInsights = () => {
   // State for workout data
@@ -52,7 +64,7 @@ const MyInsights = () => {
     { date: 'Sat', actual: 2500, target: 2400 },
     { date: 'Sun', actual: 2450, target: 2400 },
   ];
-
+  
   // Check authentication status
   useEffect(() => {
     const checkAuthStatus = async () => {

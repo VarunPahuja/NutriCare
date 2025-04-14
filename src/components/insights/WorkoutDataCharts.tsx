@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useWorkoutData } from '@/hooks/useWorkoutData';
-import { ChartContainer, ChartTooltipContent, ChartTooltip } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 const WorkoutDataCharts = () => {
   const { 
@@ -82,14 +82,23 @@ const WorkoutDataCharts = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#444" />
                 <XAxis dataKey="date" stroke="#888" />
                 <YAxis stroke="#888" />
-                <ChartTooltip 
-                  content={props => (
-                    <ChartTooltipContent 
-                      {...props}
-                      labelKey="date"
-                      indicator="dot"
-                    />
-                  )}
+                <Tooltip 
+                  content={(props) => {
+                    if (!props.active || !props.payload?.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="bg-background border border-border/50 rounded-lg p-2 shadow-xl">
+                        <p className="font-medium">{props.label}</p>
+                        {props.payload.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center gap-4">
+                            <span className="text-muted-foreground">{item.name}:</span>
+                            <span className="font-mono tabular-nums">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
                 />
                 <Legend />
                 <Bar dataKey="totalWeight" name="Total Weight" fill="var(--color-totalWeight, #9b87f5)" />
@@ -120,14 +129,23 @@ const WorkoutDataCharts = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#444" />
                 <XAxis type="number" stroke="#888" />
                 <YAxis dataKey="exercise" type="category" stroke="#888" width={120} />
-                <ChartTooltip 
-                  content={props => (
-                    <ChartTooltipContent 
-                      {...props}
-                      labelKey="exercise"
-                      indicator="dot"
-                    />
-                  )}
+                <Tooltip 
+                  content={(props) => {
+                    if (!props.active || !props.payload?.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="bg-background border border-border/50 rounded-lg p-2 shadow-xl">
+                        <p className="font-medium">{props.label}</p>
+                        {props.payload.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center gap-4">
+                            <span className="text-muted-foreground">{item.name}:</span>
+                            <span className="font-mono tabular-nums">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
                 />
                 <Legend />
                 <Bar dataKey="count" name="Frequency" fill="var(--color-count, #1EAEDB)" />
@@ -158,14 +176,23 @@ const WorkoutDataCharts = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#444" />
                 <XAxis type="number" stroke="#888" />
                 <YAxis dataKey="exercise" type="category" stroke="#888" width={120} />
-                <ChartTooltip 
-                  content={props => (
-                    <ChartTooltipContent 
-                      {...props}
-                      labelKey="exercise"
-                      indicator="dot"
-                    />
-                  )}
+                <Tooltip 
+                  content={(props) => {
+                    if (!props.active || !props.payload?.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="bg-background border border-border/50 rounded-lg p-2 shadow-xl">
+                        <p className="font-medium">{props.label}</p>
+                        {props.payload.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center gap-4">
+                            <span className="text-muted-foreground">{item.name}:</span>
+                            <span className="font-mono tabular-nums">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
                 />
                 <Legend />
                 <Bar dataKey="maxWeight" name="Max Weight (kg)" fill="var(--color-maxWeight, #7E69AB)" />
@@ -195,14 +222,23 @@ const WorkoutDataCharts = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#444" />
                 <XAxis dataKey="date" stroke="#888" />
                 <YAxis stroke="#888" />
-                <ChartTooltip 
-                  content={props => (
-                    <ChartTooltipContent 
-                      {...props}
-                      labelKey="date"
-                      indicator="dot"
-                    />
-                  )}
+                <Tooltip 
+                  content={(props) => {
+                    if (!props.active || !props.payload?.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="bg-background border border-border/50 rounded-lg p-2 shadow-xl">
+                        <p className="font-medium">{props.label}</p>
+                        {props.payload.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center gap-4">
+                            <span className="text-muted-foreground">{item.name}:</span>
+                            <span className="font-mono tabular-nums">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }}
                 />
                 <Legend />
                 <Line 

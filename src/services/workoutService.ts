@@ -68,22 +68,24 @@ export const saveWorkoutToSupabase = async (workout: WorkoutSession): Promise<bo
       return false;
     }
     
-    // Convert Exercise[] to Json type by using JSON.stringify and then parsing it
-    // This satisfies TypeScript's type checking while preserving the data structure
-    const exercisesJson = JSON.parse(JSON.stringify(workout.exercises)) as Json;
-    
-    const { error } = await supabase.from('workouts').insert({
-      user_id: userId,
-      date: new Date(workout.date).toISOString(),
-      type: workout.type,
-      duration: workout.duration,
-      exercises: exercisesJson
-    });
-    
-    if (error) {
-      console.error('Error saving workout to Supabase:', error);
-      toast.error("Failed to save workout data");
-      return false;
+    // Insert individual workout sets as separate rows in the workouts table
+    // Each exercise in the workout becomes multiple rows (one per set)
+    for (const exercise of workout.exercises) {
+      for (const set of exercise.sets) {
+        const { error } = await supabase.from('workouts').insert({
+          date: new Date(workout.date).toISOString(),
+          exercise_name: exercise.name,
+          set_weight: set.weight,
+          set_repetitions: set.reps,
+          comment: workout.notes || null
+        });
+        
+        if (error) {
+          console.error('Error saving workout set to Supabase:', error);
+          toast.error("Failed to save workout data");
+          return false;
+        }
+      }
     }
     
     toast.success("Workout saved to your account");
@@ -107,21 +109,46 @@ export const fetchWorkoutsFromSupabase = async (): Promise<WorkoutSession[]> => 
       return [];
     }
     
-    // Transform database records to WorkoutSession format
-    const workouts: WorkoutSession[] = data.map(record => {
-      // Safely cast the exercises field from Json to Exercise[]
-      const exercises = (record.exercises as unknown) as Exercise[];
-      
-      return {
-        id: parseInt(record.id.slice(0, 8), 16), // Create a numeric ID from UUID
-        date: record.date,
-        type: record.type,
-        duration: record.duration,
-        exercises: exercises || []
-      };
-    });
+    // Group records by date and exercise to reconstruct the WorkoutSession format
+    const workoutsByDate = new Map<string, WorkoutSession>();
+    let workoutId = 0;
     
-    return workouts;
+    for (const record of data) {
+      const dateKey = record.date.split('T')[0]; // Extract YYYY-MM-DD
+      
+      if (!workoutsByDate.has(dateKey)) {
+        workoutId++;
+        workoutsByDate.set(dateKey, {
+          id: workoutId,
+          date: dateKey,
+          type: 'strength', // Default type, assuming strength training
+          duration: 3600, // Default duration (1 hour)
+          exercises: [],
+          notes: record.comment || ''
+        });
+      }
+      
+      const session = workoutsByDate.get(dateKey)!;
+      
+      // Check if exercise already exists in the session
+      let exercise = session.exercises.find(ex => ex.name === record.exercise_name);
+      
+      if (!exercise) {
+        exercise = {
+          name: record.exercise_name,
+          sets: []
+        };
+        session.exercises.push(exercise);
+      }
+      
+      // Add the set to the exercise
+      exercise.sets.push({
+        weight: record.set_weight,
+        reps: record.set_repetitions
+      });
+    }
+    
+    return Array.from(workoutsByDate.values());
   } catch (error) {
     console.error('Error in fetchWorkoutsFromSupabase:', error);
     return [];
