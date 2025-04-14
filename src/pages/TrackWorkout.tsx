@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { 
@@ -49,6 +48,7 @@ export interface WorkoutSession {
   type: string;
   duration: number;
   exercises: Exercise[];
+  comment?: string;
 }
 
 const WORKOUT_HISTORY_KEY = 'nutricare_workout_history';
@@ -64,7 +64,6 @@ const TrackWorkout = () => {
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check authentication status
   useEffect(() => {
     const checkAuthStatus = async () => {
       const { data } = await supabase.auth.getSession();
@@ -73,7 +72,6 @@ const TrackWorkout = () => {
     
     checkAuthStatus();
     
-    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(!!session);
     });
@@ -81,22 +79,18 @@ const TrackWorkout = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load workout history
   useEffect(() => {
     const loadWorkoutHistory = async () => {
       if (isAuthenticated) {
-        // Try to load from Supabase database first
         const supabaseWorkouts = await fetchWorkoutsFromSupabase();
         
         if (supabaseWorkouts.length > 0) {
           setWorkoutHistory(supabaseWorkouts);
         } else {
-          // Try CSV as a fallback
           const csvWorkouts = await fetchWorkoutDataFromCSV();
           if (csvWorkouts.length > 0) {
             setWorkoutHistory(csvWorkouts);
           } else {
-            // Use local storage as last resort
             const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
             if (savedHistory) {
               try {
@@ -108,7 +102,6 @@ const TrackWorkout = () => {
           }
         }
       } else {
-        // If not authenticated, just use localStorage
         const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
         if (savedHistory) {
           try {
@@ -164,7 +157,6 @@ const TrackWorkout = () => {
     
     localStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updatedHistory));
     
-    // If authenticated, save to Supabase as well
     if (isAuthenticated) {
       await saveWorkoutToSupabase(newWorkout);
     } else {

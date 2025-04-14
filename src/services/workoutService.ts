@@ -71,13 +71,13 @@ export const saveWorkoutToSupabase = async (workout: WorkoutSession): Promise<bo
     // Insert individual workout sets as separate rows in the workouts table
     // Each exercise in the workout becomes multiple rows (one per set)
     for (const exercise of workout.exercises) {
-      for (const set of exercise.sets) {
+      for (let i = 0; i < exercise.sets; i++) {
         const { error } = await supabase.from('workouts').insert({
           date: new Date(workout.date).toISOString(),
           exercise_name: exercise.name,
-          set_weight: set.weight,
-          set_repetitions: set.reps,
-          comment: workout.notes || null
+          set_weight: exercise.weight,
+          set_repetitions: exercise.reps,
+          comment: workout.comment || null
         });
         
         if (error) {
@@ -124,7 +124,7 @@ export const fetchWorkoutsFromSupabase = async (): Promise<WorkoutSession[]> => 
           type: 'strength', // Default type, assuming strength training
           duration: 3600, // Default duration (1 hour)
           exercises: [],
-          notes: record.comment || ''
+          comment: record.comment || ''
         });
       }
       
@@ -135,17 +135,17 @@ export const fetchWorkoutsFromSupabase = async (): Promise<WorkoutSession[]> => 
       
       if (!exercise) {
         exercise = {
+          id: session.exercises.length + 1,
           name: record.exercise_name,
-          sets: []
+          sets: 1,
+          reps: record.set_repetitions,
+          weight: record.set_weight
         };
         session.exercises.push(exercise);
+      } else {
+        // Increment the sets count for this exercise
+        exercise.sets += 1;
       }
-      
-      // Add the set to the exercise
-      exercise.sets.push({
-        weight: record.set_weight,
-        reps: record.set_repetitions
-      });
     }
     
     return Array.from(workoutsByDate.values());
