@@ -38,12 +38,11 @@ const WellnessCrew = () => {
                 <div className="h-20 bg-gradient-to-r from-fitness-primary/30 to-[#FF4757]/30"></div>
                 <div className="-mt-10 flex justify-center">
                   <Avatar className="h-20 w-20 border-4 border-fitness-card">
-                    <AvatarImage src="https://i.pravatar.cc/150?img=32" alt="Jessica Moore" />
-                    <AvatarFallback className="text-lg">JM</AvatarFallback>
+                    <AvatarFallback className="text-lg">NP</AvatarFallback>
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Jessica Moore</CardTitle>
+                  <CardTitle>Neha Pandey</CardTitle>
                   <CardDescription>
                     <Badge className="bg-fitness-primary/20 text-fitness-primary hover:bg-fitness-primary/30">
                       Nutrition Coach
@@ -77,12 +76,11 @@ const WellnessCrew = () => {
                 <div className="h-20 bg-gradient-to-r from-fitness-primary/30 to-[#FF4757]/30"></div>
                 <div className="-mt-10 flex justify-center">
                   <Avatar className="h-20 w-20 border-4 border-fitness-card">
-                    <AvatarImage src="https://i.pravatar.cc/150?img=68" alt="Michael Chen" />
-                    <AvatarFallback className="text-lg">MC</AvatarFallback>
+                    <AvatarFallback className="text-lg">SC</AvatarFallback>
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Michael Chen</CardTitle>
+                  <CardTitle>Saurash Chauan</CardTitle>
                   <CardDescription>
                     <Badge className="bg-fitness-primary/20 text-fitness-primary hover:bg-fitness-primary/30">
                       Fitness Coach
@@ -121,12 +119,11 @@ const WellnessCrew = () => {
                 <div className="h-20 bg-gradient-to-r from-[#3EADCF]/30 to-[#ABE9CD]/30"></div>
                 <div className="-mt-10 flex justify-center">
                   <Avatar className="h-20 w-20 border-4 border-fitness-card">
-                    <AvatarImage src="https://i.pravatar.cc/150?img=12" alt="Dr. Sarah Johnson" />
-                    <AvatarFallback className="text-lg">SJ</AvatarFallback>
+                    <AvatarFallback className="text-lg">PG</AvatarFallback>
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Dr. Sarah Johnson</CardTitle>
+                  <CardTitle>Dr. Priya Gupta</CardTitle>
                   <CardDescription>
                     <Badge className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
                       Endocrinologist
@@ -155,12 +152,11 @@ const WellnessCrew = () => {
                 <div className="h-20 bg-gradient-to-r from-[#3EADCF]/30 to-[#ABE9CD]/30"></div>
                 <div className="-mt-10 flex justify-center">
                   <Avatar className="h-20 w-20 border-4 border-fitness-card">
-                    <AvatarImage src="https://i.pravatar.cc/150?img=25" alt="Lauren Rodriguez" />
-                    <AvatarFallback className="text-lg">LR</AvatarFallback>
+                    <AvatarFallback className="text-lg">SK</AvatarFallback>
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Lauren Rodriguez</CardTitle>
+                  <CardTitle>Salman Khan</CardTitle>
                   <CardDescription>
                     <Badge className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
                       Clinical Dietitian

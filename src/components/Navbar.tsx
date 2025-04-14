@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Bell, Search, User, Activity, BarChart2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -72,13 +71,12 @@ const Navbar = () => {
         
         <div className="flex items-center space-x-3">
           <div className="hidden md:block text-right">
-            <p className="text-sm font-medium">Hi, Anna Green</p>
+            <p className="text-sm font-medium">Hi, Varun Pahuja</p>
             <p className="text-xs text-gray-400">Premium Plan</p>
           </div>
           <Link to="/settings">
             <Avatar className="h-8 w-8">
-              <AvatarImage src="https://i.pravatar.cc/100?img=36" alt="Anna Green" />
-              <AvatarFallback>AG</AvatarFallback>
+              <AvatarFallback>VP</AvatarFallback>
             </Avatar>
           </Link>
         </div>
