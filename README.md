@@ -1,68 +1,70 @@
 
+
 # NutriCare
 
-## Project info
+NutriCare is a simple nutrition and fitness dashboard prototype built with React, Vite, TypeScript, shadcn-ui, and Tailwind CSS. It provides a foundation for tracking meal plans, workouts, and wellness insights.
 
-**URL**: [Project Home](#)
+---
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Modern, responsive UI with reusable components
+- Pages for meal plans, progress, insights, and more
+- Ready for Supabase integration (auth/data)
+- Easy to extend and customize
 
+---
 
+## Getting Started
 
-**Use your preferred IDE**
+### Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js (v18+ recommended)
+- npm
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+git clone https://github.com/VarunPahuja/NutriCare.git
+cd NutriCare
+npm install
 ```
 
-**Edit a file directly in GitHub**
+### Running Locally
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+npm run dev
+```
+Visit `http://localhost:8080` in your browser.
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project Structure
 
-## What technologies are used for this project?
+- `src/pages/` — Main app pages (MealPlans, Progress, etc.)
+- `src/components/` — Reusable UI components
+- `src/integrations/supabase/` — Supabase client setup (to be configured)
+- `src/services/` — Service files for data logic
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
+Build for production:
 
-## How can I deploy this project?
+```sh
+npm run build
+```
+Deploy the `dist` folder to Vercel, Netlify, or your preferred static host.
 
-Deploy using Vercel, Netlify, or your preferred static hosting. Build with `npm run build` and deploy the contents of the `dist` folder.
+---
 
+## Custom Domain
 
-## Can I connect a custom domain?
+Most static hosts allow you to connect a custom domain. Refer to your host’s documentation.
 
-Yes! Most static hosts allow you to connect a custom domain. Refer to your host's documentation for details.
+---
+
+## Contributing
+
+Pull requests are welcome! For major changes, please open an issue first to discuss what you’d like to change.
