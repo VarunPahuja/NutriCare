@@ -104,7 +104,7 @@ const Settings = () => {
                         <Label htmlFor="firstName">First Name</Label>
                         <Input 
                           id="firstName" 
-                          defaultValue="Anna" 
+                          defaultValue="Varun" 
                           className="bg-fitness-muted/70 border-fitness-border" 
                         />
                       </div>
@@ -112,7 +112,7 @@ const Settings = () => {
                         <Label htmlFor="lastName">Last Name</Label>
                         <Input 
                           id="lastName" 
-                          defaultValue="Green" 
+                          defaultValue="Pahuja" 
                           className="bg-fitness-muted/70 border-fitness-border" 
                         />
                       </div>
@@ -123,7 +123,7 @@ const Settings = () => {
                       <Input 
                         id="email" 
                         type="email" 
-                        defaultValue="anna.green@example.com" 
+                        defaultValue="vpahuja1508@gmail.com" 
                         className="bg-fitness-muted/70 border-fitness-border" 
                       />
                     </div>

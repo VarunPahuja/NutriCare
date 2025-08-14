@@ -80,7 +80,7 @@ const WellnessCrew = () => {
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Saurash Chauan</CardTitle>
+                  <CardTitle>Juhi Singh</CardTitle>
                   <CardDescription>
                     <Badge className="bg-fitness-primary/20 text-fitness-primary hover:bg-fitness-primary/30">
                       Fitness Coach
@@ -123,7 +123,7 @@ const WellnessCrew = () => {
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Dr. Priya Gupta</CardTitle>
+                  <CardTitle>Kriti Paliwal</CardTitle>
                   <CardDescription>
                     <Badge className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
                       Endocrinologist
@@ -156,7 +156,7 @@ const WellnessCrew = () => {
                   </Avatar>
                 </div>
                 <CardHeader className="text-center pt-2">
-                  <CardTitle>Salman Khan</CardTitle>
+                  <CardTitle>Sayar Singh Shekhawat</CardTitle>
                   <CardDescription>
                     <Badge className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
                       Clinical Dietitian

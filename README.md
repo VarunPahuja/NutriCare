@@ -1,18 +1,15 @@
-# Welcome to your Lovable project
+
+# NutriCare
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/c876b9cb-253e-41ca-83ca-fe5b22f55c98
+**URL**: [Project Home](#)
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/c876b9cb-253e-41ca-83ca-fe5b22f55c98) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
@@ -60,14 +57,12 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/c876b9cb-253e-41ca-83ca-fe5b22f55c98) and click on Share -> Publish.
+Deploy using Vercel, Netlify, or your preferred static hosting. Build with `npm run build` and deploy the contents of the `dist` folder.
 
-## Can I connect a custom domain to my Lovable project?
 
-Yes it is!
+## Can I connect a custom domain?
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Yes! Most static hosts allow you to connect a custom domain. Refer to your host's documentation for details.
