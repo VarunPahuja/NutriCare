@@ -1,0 +1,42 @@
+=== Dataset Overview ===
+Rows: 5000, Columns: 30
+Missing values:
+  Allergies: 3497
+  Food_Aversions: 1225
+
+=== Key Statistics (Numerical Columns) ===
+Age: mean=48.81, median=49.00, mode=77, std=17.91
+Height_cm: mean=174.24, median=174.00, mode=162, std=14.23
+Weight_kg: mean=84.37, median=84.00, mode=64, std=20.18
+BMI: mean=28.35, median=27.64, mode=20.2, std=8.30
+Blood_Pressure_Systolic: mean=133.98, median=133.00, mode=104, std=26.22
+Blood_Pressure_Diastolic: mean=89.74, median=90.00, mode=72, std=17.28
+Cholesterol_Level: mean=224.30, median=224.00, mode=236, std=42.92
+Blood_Sugar_Level: mean=159.33, median=160.00, mode=113, std=52.15
+Daily_Steps: mean=8458.92, median=8452.00, mode=2591, std=3742.41
+Exercise_Frequency: mean=2.98, median=3.00, mode=0, std=2.00
+Sleep_Hours: mean=7.02, median=7.00, mode=6.1, std=1.72
+Caloric_Intake: mean=2347.35, median=2350.50, mode=1358, std=659.88
+Protein_Intake: mean=124.78, median=126.00, mode=150, std=43.28
+Carbohydrate_Intake: mean=248.59, median=249.00, mode=332, std=86.54
+Fat_Intake: mean=84.52, median=85.00, mode=54, std=37.50
+Recommended_Calories: mean=2046.24, median=2044.00, mode=1701, std=671.38
+Recommended_Protein: mean=129.29, median=129.00, mode=107, std=43.91
+Recommended_Carbs: mean=248.33, median=246.00, mode=211, std=91.15
+Recommended_Fats: mean=89.03, median=89.00, mode=87, std=38.34
+
+=== Notable Correlations (|corr| > 0.5) ===
+Height_cm <-> BMI: corr=-0.56
+Weight_kg <-> BMI: corr=0.82
+Caloric_Intake <-> Recommended_Calories: corr=0.99
+Protein_Intake <-> Recommended_Protein: corr=0.98
+Carbohydrate_Intake <-> Recommended_Carbs: corr=0.95
+Fat_Intake <-> Recommended_Fats: corr=0.97
+
+=== Outliers Found (values outside 1.5*IQR) ===
+BMI: 4 outliers
+
+=== Patterns or Insights ===
+Average BMI: 28.35
+Most common chronic disease: none
+Average recommended calories: 2046.24
