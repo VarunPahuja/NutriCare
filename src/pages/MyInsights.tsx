@@ -12,7 +12,8 @@ import { format, parseISO, subDays } from 'date-fns';
 import { WorkoutSession } from './TrackWorkout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { fetchWorkoutsFromSupabase, fetchWorkoutDataFromCSV } from '@/services/workoutService';
-import { supabase } from "@/integrations/supabase/client";
+// Supabase removed
+// import { supabase } from "@/integrations/supabase/client";
 import WorkoutDataCharts from '@/components/insights/WorkoutDataCharts';
 import { 
   ResponsiveContainer, 
@@ -66,20 +67,24 @@ const MyInsights = () => {
   ];
   
   // Check authentication status
+  // Supabase removed - no authentication currently
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-    };
+    // const checkAuthStatus = async () => {
+    //   const { data } = await supabase.auth.getSession();
+    //   setIsAuthenticated(!!data.session);
+    // };
     
-    checkAuthStatus();
+    // checkAuthStatus();
     
     // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
+    // const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    //   setIsAuthenticated(!!session);
+    // });
     
-    return () => subscription.unsubscribe();
+    // No authentication - always set to false
+    setIsAuthenticated(false);
+    
+    // return () => subscription.unsubscribe();
   }, []);
 
   // Load workout history from appropriate source

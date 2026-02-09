@@ -14,32 +14,40 @@ import NotFound from "./pages/NotFound";
 import MyInsights from "./pages/MyInsights";
 import TrackWorkout from "./pages/TrackWorkout";
 import WellnessCrew from "./pages/WellnessCrew";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+// Auth pages
+import ChooseRole from "./pages/auth/ChooseRole";
+import PatientSignup from "./pages/auth/PatientSignup";
+import DoctorSignup from "./pages/auth/DoctorSignup";
+import PatientLogin from "./pages/auth/PatientLogin";
+import DoctorLogin from "./pages/auth/DoctorLogin";
+// import { useEffect, useState } from "react";
+// Supabase removed - no authentication currently
+// import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Supabase authentication removed
+  // const [session, setSession] = useState<any>(null);
+  // const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+  // useEffect(() => {
+  //   // Check for existing session
+  //   supabase.auth.getSession().then(({ data: { session } }) => {
+  //     setSession(session);
+  //     setLoading(false);
+  //   });
 
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setLoading(false);
-      }
-    );
+  //   // Set up auth state listener
+  //   const { data: { subscription } } = supabase.auth.onAuthStateChange(
+  //     (_event, session) => {
+  //       setSession(session);
+  //       setLoading(false);
+  //     }
+  //   );
 
-    return () => subscription.unsubscribe();
-  }, []);
+  //   return () => subscription.unsubscribe();
+  // }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -48,10 +56,15 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Authentication Routes */}
+            <Route path="/" element={<ChooseRole />} />
+            <Route path="/signup/patient" element={<PatientSignup />} />
+            <Route path="/signup/doctor" element={<DoctorSignup />} />
+            <Route path="/login/patient" element={<PatientLogin />} />
+            <Route path="/login/doctor" element={<DoctorLogin />} />
             <Route path="/signin" element={<SignIn />} />
-            <Route path="/" element={
-              session ? <Navigate to="/dashboard" replace /> : <Navigate to="/signin" replace />
-            } />
+            
+            {/* App Routes */}
             <Route path="/dashboard" element={<Index />} />
             <Route path="/meal-plans" element={<MealPlans />} />
             <Route path="/progress" element={<Progress />} />

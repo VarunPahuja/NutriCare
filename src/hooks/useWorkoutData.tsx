@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+// Supabase removed - using mock data
+// import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export interface WorkoutData {
@@ -41,22 +42,15 @@ export function useWorkoutData() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Supabase removed - using empty data for now
     async function fetchWorkoutData() {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('workouts')
-          .select('*')
-          .order('date', { ascending: false });
-
-        if (error) {
-          throw error;
-        }
-
-        if (data) {
-          setWorkoutData(data as WorkoutData[]);
-          processWorkoutData(data as WorkoutData[]);
-        }
+        // Mock empty data since Supabase is removed
+        const data: WorkoutData[] = [];
+        
+        setWorkoutData(data);
+        processWorkoutData(data);
       } catch (error) {
         console.error('Error fetching workout data:', error);
         setError('Failed to load workout data');

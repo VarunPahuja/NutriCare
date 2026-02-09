@@ -9,6 +9,7 @@ import RecentActivities from '@/components/RecentActivities';
 import FloatingAction from '@/components/FloatingAction';
 import { Button } from '@/components/ui/button';
 import { Book, ArrowRight } from 'lucide-react';
+import NutritionPrediction from '@/components/NutritionPrediction';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -46,6 +47,8 @@ const Index = () => {
               </Button>
             </div>
           </div>
+            {/* Nutrition Prediction Widget */}
+            <NutritionPrediction />
         </div>
         
         {/* Main dashboard grid */}

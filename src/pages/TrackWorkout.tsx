@@ -32,7 +32,8 @@ import {
 } from 'lucide-react';
 import { toast } from "sonner";
 import { fetchWorkoutDataFromCSV, saveWorkoutToSupabase, fetchWorkoutsFromSupabase } from '@/services/workoutService';
-import { supabase } from "@/integrations/supabase/client";
+// Supabase removed
+// import { supabase } from "@/integrations/supabase/client";
 
 export interface Exercise {
   id: number;
@@ -65,18 +66,22 @@ const TrackWorkout = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-    };
+    // Supabase removed - no authentication currently
+    // const checkAuthStatus = async () => {
+    //   const { data } = await supabase.auth.getSession();
+    //   setIsAuthenticated(!!data.session);
+    // };
     
-    checkAuthStatus();
+    // checkAuthStatus();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
+    // const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    //   setIsAuthenticated(!!session);
+    // });
     
-    return () => subscription.unsubscribe();
+    // No authentication - always set to false
+    setIsAuthenticated(false);
+    
+    // return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
