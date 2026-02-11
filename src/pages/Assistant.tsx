@@ -3,17 +3,38 @@ import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, MessageCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Loader2, MessageCircle, User } from 'lucide-react';
 
 const AssistantPage = () => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Profile state
+  const [age, setAge] = useState('');
+  const [weight, setWeight] = useState('');
+  const [activity, setActivity] = useState('');
+  const [goal, setGoal] = useState('');
+  const [conditions, setConditions] = useState<string[]>([]);
+
+  // Environment-based API configuration with fallback
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
   // Background decoration elements
   const BlurredCircle = ({ className }: { className: string }) => (
     <div className={`absolute rounded-full mix-blend-overlay blur-3xl ${className}`}></div>
   );
+
+  const handleConditionChange = (condition: string, checked: boolean) => {
+    if (checked) {
+      setConditions(prev => [...prev, condition]);
+    } else {
+      setConditions(prev => prev.filter(c => c !== condition));
+    }
+  };
 
   const handleAsk = async () => {
     if (!question.trim()) return;
@@ -21,11 +42,34 @@ const AssistantPage = () => {
     setLoading(true);
     setResponse('');
     
-    // Mock 1-second delay
-    setTimeout(() => {
-      setResponse('This is a demo AI response. Backend integration coming next.');
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          message: question,
+          context: {
+            age: age ? parseInt(age) : null,
+            weight: weight ? parseInt(weight) : null,
+            activity,
+            goal,
+            conditions
+          }
+        }),
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      setResponse(data.reply || "No response received.");
+    } catch (err: any) {
+      console.error('Chat API error:', err);
+      setResponse("AI service temporarily unavailable.");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -59,6 +103,93 @@ const AssistantPage = () => {
           
           {/* Assistant Interface */}
           <div className="max-w-4xl mx-auto space-y-6">
+            {/* Profile Info Section */}
+            <Card className="fitness-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Profile Info
+                </CardTitle>
+                <CardDescription>
+                  Provide your details for personalized nutrition advice
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="age">Age</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      placeholder="e.g., 25"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className="bg-fitness-muted border-fitness-border focus:border-fitness-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="weight">Weight (kg)</Label>
+                    <Input
+                      id="weight"
+                      type="number"
+                      placeholder="e.g., 70"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                      className="bg-fitness-muted border-fitness-border focus:border-fitness-primary"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Activity Level</Label>
+                    <Select value={activity} onValueChange={setActivity}>
+                      <SelectTrigger className="bg-fitness-muted border-fitness-border focus:border-fitness-primary">
+                        <SelectValue placeholder="Select activity level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Sedentary">Sedentary</SelectItem>
+                        <SelectItem value="Moderate">Moderate</SelectItem>
+                        <SelectItem value="Strength Training">Strength Training</SelectItem>
+                        <SelectItem value="Athlete">Athlete</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Goal</Label>
+                    <Select value={goal} onValueChange={setGoal}>
+                      <SelectTrigger className="bg-fitness-muted border-fitness-border focus:border-fitness-primary">
+                        <SelectValue placeholder="Select your goal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Fat Loss">Fat Loss</SelectItem>
+                        <SelectItem value="Maintenance">Maintenance</SelectItem>
+                        <SelectItem value="Muscle Gain">Muscle Gain</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Health Conditions</Label>
+                  <div className="flex flex-wrap gap-4">
+                    {['Hypertension', 'Diabetes', 'Kidney Issues'].map((condition) => (
+                      <div key={condition} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={condition}
+                          checked={conditions.includes(condition)}
+                          onCheckedChange={(checked) => handleConditionChange(condition, checked as boolean)}
+                        />
+                        <Label htmlFor={condition} className="text-sm">
+                          {condition}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Input Section */}
             <Card className="fitness-card">
               <CardHeader>
