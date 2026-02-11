@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Button } from '@/components/ui/button';
 
+// Environment-based API configuration with fallback for development
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 const defaultInput = {
   Age: 19,
   Height: 175,
@@ -59,7 +62,7 @@ export default function NutritionPrediction() {
       Chronic_Disease_hypertension: input.Disease === 'Hypertension' ? 1 : 0,
     };
     try {
-      const res = await fetch("http://localhost:8000/predict", {
+      const res = await fetch(`${API_BASE_URL}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -7,6 +7,8 @@ import { Link, useLocation } from 'react-router-dom';
 const tabs = [
   { name: "Overview", path: "/dashboard" },
   { name: "Meal Plans", path: "/meal-plans" },
+  { name: "AI Prediction", path: "/prediction" },
+  { name: "AI Assistant", path: "/assistant" },
   { name: "My Insights", path: "/my-insights", icon: BarChart2 },
   { name: "Track Workout", path: "/track-workout", icon: Activity },
   { name: "Progress", path: "/progress" },

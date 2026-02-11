@@ -2,11 +2,15 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import pandas as pd
+from pathlib import Path
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-model = joblib.load("models/best_model_Advanced.joblib")
+# Deployment-safe model loading using relative path
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "models" / "best_model_Advanced.joblib"
+model = joblib.load(MODEL_PATH)
 
 @app.post("/predict")
 async def predict(request: Request):

@@ -14,6 +14,8 @@ import NotFound from "./pages/NotFound";
 import MyInsights from "./pages/MyInsights";
 import TrackWorkout from "./pages/TrackWorkout";
 import WellnessCrew from "./pages/WellnessCrew";
+import NutritionPredictionPage from "./pages/NutritionPrediction";
+import AssistantPage from "./pages/Assistant";
 // Auth pages
 import ChooseRole from "./pages/auth/ChooseRole";
 import PatientSignup from "./pages/auth/PatientSignup";
@@ -73,6 +75,8 @@ const App = () => {
             <Route path="/my-insights" element={<MyInsights />} />
             <Route path="/track-workout" element={<TrackWorkout />} />
             <Route path="/wellness-crew" element={<WellnessCrew />} />
+            <Route path="/prediction" element={<NutritionPredictionPage />} />
+            <Route path="/assistant" element={<AssistantPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
