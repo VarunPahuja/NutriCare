@@ -8,6 +8,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Loader2, MessageCircle, User } from 'lucide-react';
 
+// Type definitions for structured LLM response
+interface StructuredResponse {
+  summary: string;
+  recommendations: string[];
+  cautions: string[];
+}
+
+interface FallbackResponse {
+  reply?: string;
+  summary?: string;
+}
+
+type ApiResponse = StructuredResponse | FallbackResponse;
+
 const AssistantPage = () => {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
@@ -62,8 +76,32 @@ const AssistantPage = () => {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
       
-      const data = await res.json();
-      setResponse(data.reply || "No response received.");
+      const data: ApiResponse = await res.json();
+      
+      // Handle new structured response format
+      if ('summary' in data && 'recommendations' in data && 'cautions' in data) {
+        let formattedResponse = `${data.summary}\n\n`;
+        
+        if (data.recommendations.length > 0) {
+          formattedResponse += "Key Recommendations:\n";
+          data.recommendations.forEach((rec: string) => {
+            formattedResponse += `• ${rec}\n`;
+          });
+          formattedResponse += "\n";
+        }
+        
+        if (data.cautions.length > 0) {
+          formattedResponse += "What To Be Careful About:\n";
+          data.cautions.forEach((caut: string) => {
+            formattedResponse += `• ${caut}\n`;
+          });
+        }
+        
+        setResponse(formattedResponse);
+      } else {
+        // Fallback for old format or raw text
+        setResponse(data.reply || data.summary || "No response received.");
+      }
     } catch (err: any) {
       console.error('Chat API error:', err);
       setResponse("AI service temporarily unavailable.");
