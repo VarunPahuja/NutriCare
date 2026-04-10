@@ -1,53 +1,51 @@
+import { supabase } from '@/lib/supabase';
+import type { WorkoutLog } from '@/types/database';
+import { toast } from 'sonner';
 
-// Supabase removed - using localStorage only
-// import { supabase } from "@/integrations/supabase/client";
-import { WorkoutSession, Exercise } from "@/pages/TrackWorkout";
-import { toast } from "sonner";
-// import { Json } from "@/integrations/supabase/types";
-
-// Function to fetch and parse CSV workout data from Supabase storage
-export const fetchWorkoutDataFromCSV = async (): Promise<WorkoutSession[]> => {
+// Save a workout log to Supabase
+export const saveWorkout = async (log: Omit<WorkoutLog, 'id' | 'created_at'>): Promise<boolean> => {
   try {
-    // Supabase storage removed - return empty array
-    console.log('Supabase removed - no CSV data available');
-    return [];
-  } catch (error) {
-    console.error('Error processing workout data:', error);
-    return [];
-  }
-};
-
-// Function to save workout data to Supabase database
-// Supabase removed - using localStorage only
-export const saveWorkoutToSupabase = async (workout: WorkoutSession): Promise<boolean> => {
-  try {
-    // Save to localStorage instead of Supabase
-    const existingWorkouts = localStorage.getItem('nutricare_workout_history');
-    const workouts: WorkoutSession[] = existingWorkouts ? JSON.parse(existingWorkouts) : [];
-    workouts.push(workout);
-    localStorage.setItem('nutricare_workout_history', JSON.stringify(workouts));
-    
-    toast.success("Workout saved locally");
+    const { error } = await supabase.from('workout_logs').insert(log);
+    if (error) throw error;
+    toast.success('Workout saved successfully!');
     return true;
   } catch (error) {
-    console.error('Error in saveWorkoutToSupabase:', error);
-    toast.error("Failed to save workout data");
+    console.error('Error saving workout:', error);
+    toast.error('Failed to save workout');
     return false;
   }
 };
 
-// Function to fetch workout data from Supabase database
-// Supabase removed - using localStorage only
-export const fetchWorkoutsFromSupabase = async (): Promise<WorkoutSession[]> => {
+// Delete a workout log from Supabase
+export const deleteWorkout = async (id: string): Promise<boolean> => {
   try {
-    // Fetch from localStorage instead of Supabase
-    const existingWorkouts = localStorage.getItem('nutricare_workout_history');
-    if (existingWorkouts) {
-      return JSON.parse(existingWorkouts) as WorkoutSession[];
-    }
-    return [];
+    const { error } = await supabase.from('workout_logs').delete().eq('id', id);
+    if (error) throw error;
+    return true;
   } catch (error) {
-    console.error('Error in fetchWorkoutsFromSupabase:', error);
+    console.error('Error deleting workout:', error);
+    return false;
+  }
+};
+
+// Get all workout logs for a specific patient
+export const getWorkouts = async (patientId: string): Promise<WorkoutLog[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('workout_logs')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching workouts:', error);
     return [];
   }
+};
+
+// Deprecated: CSV import stub (kept for API compatibility)
+export const fetchWorkoutDataFromCSV = async (): Promise<never[]> => {
+  console.log('CSV import is deprecated — use getWorkouts() instead');
+  return [];
 };

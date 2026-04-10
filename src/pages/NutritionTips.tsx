@@ -1,237 +1,253 @@
-
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Clock, Heart, ThumbsUp, Filter, Search } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ExternalLink, RefreshCw, Newspaper } from 'lucide-react';
 
-const nutritionTips = [
-  {
-    id: 1,
-    title: "The Benefits of a Mediterranean Diet",
-    description: "Discover how the Mediterranean diet can improve heart health and reduce inflammation.",
-    category: "Diet Types",
-    readTime: "5 min read",
-    likes: 128,
-    image: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=800&h=400",
-    saved: true,
-  },
-  {
-    id: 2,
-    title: "Protein Timing for Optimal Muscle Recovery",
-    description: "Learn the science behind protein consumption timing and how it affects muscle growth and recovery.",
-    category: "Nutrition Science",
-    readTime: "8 min read",
-    likes: 94,
-    image: "https://images.unsplash.com/photo-1588954394524-d9d0a9c9a710?auto=format&fit=crop&w=800&h=400",
-    saved: false,
-  },
-  {
-    id: 3,
-    title: "Managing Blood Sugar Through Diet",
-    description: "Practical tips for stabilizing blood sugar levels through smart food choices and meal timing.",
-    category: "Health Management",
-    readTime: "6 min read",
-    likes: 156,
-    image: "https://images.unsplash.com/photo-1576673442511-7e39b6545c87?auto=format&fit=crop&w=800&h=400",
-    saved: false,
-  },
-  {
-    id: 4,
-    title: "Mindful Eating Practices",
-    description: "How to develop a healthier relationship with food through mindful eating techniques.",
-    category: "Wellness",
-    readTime: "4 min read",
-    likes: 89,
-    image: "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&h=400",
-    saved: true,
-  }
+const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY as string | undefined;
+
+interface Article {
+  title: string;
+  description: string | null;
+  url: string;
+  urlToImage: string | null;
+  source: { name: string };
+  publishedAt: string;
+}
+
+const CATEGORIES = [
+  { label: 'All', query: 'nutrition health diet' },
+  { label: 'Diet', query: 'diet weight loss healthy eating' },
+  { label: 'Fitness', query: 'fitness exercise workout' },
+  { label: 'Wellness', query: 'wellness mental health mindfulness' },
+  { label: 'Nutrition Science', query: 'nutrition science research food' },
 ];
 
+const STATIC_ARTICLES: Article[] = [
+  {
+    title: 'The Science Behind a Balanced Diet',
+    description: 'Learn how macronutrients and micronutrients work together to fuel your body and support long-term health.',
+    url: '#',
+    urlToImage: null,
+    source: { name: 'NutriCare Editorial' },
+    publishedAt: new Date().toISOString(),
+  },
+  {
+    title: 'Exercise and Nutrition: The Perfect Pair',
+    description: 'Discover how combining the right nutrition with exercise maximizes performance, recovery, and body composition.',
+    url: '#',
+    urlToImage: null,
+    source: { name: 'NutriCare Editorial' },
+    publishedAt: new Date().toISOString(),
+  },
+  {
+    title: 'Mindful Eating: Building a Healthy Relationship with Food',
+    description: 'Practical techniques for mindful eating that help reduce overeating, improve digestion, and create healthier habits.',
+    url: '#',
+    urlToImage: null,
+    source: { name: 'NutriCare Editorial' },
+    publishedAt: new Date().toISOString(),
+  },
+  {
+    title: 'Understanding Inflammation and Anti-Inflammatory Foods',
+    description: 'New research into how diet influences chronic inflammation and which foods offer the best protection.',
+    url: '#',
+    urlToImage: null,
+    source: { name: 'NutriCare Editorial' },
+    publishedAt: new Date().toISOString(),
+  },
+];
+
+// Skeleton card for loading state
+const SkeletonCard = () => (
+  <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden animate-pulse">
+    <div className="h-44 bg-white/10" />
+    <div className="p-5 space-y-3">
+      <div className="h-3 bg-white/10 rounded w-1/3" />
+      <div className="h-4 bg-white/10 rounded w-full" />
+      <div className="h-4 bg-white/10 rounded w-4/5" />
+      <div className="h-3 bg-white/10 rounded w-2/3" />
+    </div>
+  </div>
+);
+
+// Gradient placeholder for missing images
+const ImagePlaceholder = ({ index }: { index: number }) => {
+  const gradients = [
+    'from-emerald-500/30 to-teal-700/20',
+    'from-blue-500/30 to-indigo-700/20',
+    'from-orange-500/30 to-red-700/20',
+    'from-purple-500/30 to-pink-700/20',
+    'from-cyan-500/30 to-blue-700/20',
+    'from-yellow-500/30 to-orange-700/20',
+  ];
+  const emojis = ['🥗', '🏋️', '🧘', '🔬', '🫀', '🌿'];
+  const g = gradients[index % gradients.length];
+  const e = emojis[index % emojis.length];
+  return (
+    <div className={`h-44 bg-gradient-to-br ${g} flex items-center justify-center`}>
+      <span className="text-4xl">{e}</span>
+    </div>
+  );
+};
+
+const ArticleCard = ({ article, index }: { article: Article; index: number }) => {
+  const [imgError, setImgError] = useState(false);
+  const date = new Date(article.publishedAt).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all flex flex-col group">
+      {article.urlToImage && !imgError ? (
+        <img
+          src={article.urlToImage}
+          alt={article.title}
+          className="h-44 w-full object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <ImagePlaceholder index={index} />
+      )}
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+          <span className="font-medium text-gray-400">{article.source.name}</span>
+          <span>{date}</span>
+        </div>
+        <h3 className="text-white font-semibold text-sm leading-snug mb-2 line-clamp-2">
+          {article.title}
+        </h3>
+        {article.description && (
+          <p className="text-gray-400 text-xs leading-relaxed line-clamp-3 flex-1">
+            {article.description}
+          </p>
+        )}
+        <div className="mt-4">
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-fitness-primary text-xs font-medium hover:underline"
+          >
+            Read More <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const NutritionTips = () => {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [activeCategory, setActiveCategory] = useState(0);
+  const noApiKey = !NEWS_API_KEY;
+
+  const fetchArticles = useCallback(async (query: string) => {
+    if (noApiKey) {
+      setArticles(STATIC_ARTICLES);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(
+        `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=12&apiKey=${NEWS_API_KEY}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to fetch articles');
+      setArticles(data.articles || []);
+    } catch (err) {
+      setError('Could not load articles. Please try again later.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [noApiKey]);
+
+  useEffect(() => {
+    fetchArticles(CATEGORIES[activeCategory].query);
+  }, [activeCategory, fetchArticles]);
+
   return (
     <div className="min-h-screen w-full bg-fitness-background text-white relative overflow-x-hidden">
-      {/* Background effects */}
-      <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10"></div>
-      <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10"></div>
-      
-      {/* Navigation */}
+      <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10 pointer-events-none" />
+      <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10 pointer-events-none" />
+
       <Navbar />
-      
-      <main className="container mx-auto px-4 py-6 relative z-10">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
-          <h1 className="text-3xl font-bold gradient-text mb-4 md:mb-0">
-            Nutrition Tips & Articles
-          </h1>
-          
-          <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search articles..."
-                className="bg-fitness-muted/70 border border-fitness-border rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-fitness-primary w-full md:w-64"
-              />
-            </div>
-            
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Filter className="h-4 w-4" />
-              <span>Filter</span>
+
+      <main className="container mx-auto px-4 py-8 relative z-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold gradient-text">Nutrition Tips &amp; Articles</h1>
+          <p className="text-gray-400 mt-1">Stay up-to-date with the latest in health and nutrition.</p>
+        </div>
+
+        {noApiKey && (
+          <div className="mb-6 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 flex items-center gap-2 text-sm text-amber-400">
+            <Newspaper className="w-4 h-4 flex-shrink-0" />
+            Add <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-xs">VITE_NEWS_API_KEY</code> to your .env to enable live articles
+          </div>
+        )}
+
+        {/* Category tabs */}
+        <Tabs
+          value={String(activeCategory)}
+          onValueChange={(v) => setActiveCategory(Number(v))}
+          className="mb-8"
+        >
+          <TabsList className="bg-white/5 border border-white/10 h-auto flex-wrap gap-1 p-1.5">
+            {CATEGORIES.map((cat, idx) => (
+              <TabsTrigger
+                key={cat.label}
+                value={String(idx)}
+                className="data-[state=active]:bg-fitness-primary data-[state=active]:text-white text-gray-400"
+              >
+                {cat.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {/* Error state */}
+        {error && (
+          <div className="flex flex-col items-center py-20 text-center">
+            <p className="text-gray-400 mb-4">{error}</p>
+            <Button
+              variant="outline"
+              className="border-fitness-border text-gray-300"
+              onClick={() => fetchArticles(CATEGORIES[activeCategory].query)}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
             </Button>
           </div>
-        </div>
-        
-        <Tabs defaultValue="all" className="mb-8">
-          <TabsList className="bg-fitness-muted/70 backdrop-blur-sm">
-            <TabsTrigger value="all">All Topics</TabsTrigger>
-            <TabsTrigger value="diet">Diet Types</TabsTrigger>
-            <TabsTrigger value="science">Nutrition Science</TabsTrigger>
-            <TabsTrigger value="management">Health Management</TabsTrigger>
-            <TabsTrigger value="wellness">Wellness</TabsTrigger>
-            <TabsTrigger value="saved">Saved Articles</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="all" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {nutritionTips.map((tip) => (
-                <Card key={tip.id} className="bg-fitness-card/90 border-fitness-border hover:border-fitness-primary/50 transition-all overflow-hidden h-full flex flex-col">
-                  <div className="h-48 overflow-hidden">
-                    <img 
-                      src={tip.image} 
-                      alt={tip.title} 
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                  </div>
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="bg-fitness-muted px-2 py-1 rounded-md text-xs font-medium">
-                        {tip.category}
-                      </span>
-                      <div className="flex items-center text-sm text-gray-400">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {tip.readTime}
-                      </div>
-                    </div>
-                    <CardTitle className="text-xl hover:text-fitness-primary transition-colors">
-                      {tip.title}
-                    </CardTitle>
-                    <CardDescription>{tip.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    {/* Article content would go here */}
-                  </CardContent>
-                  <CardFooter className="flex justify-between border-t border-fitness-border pt-4">
-                    <div className="flex items-center space-x-4">
-                      <Button variant="ghost" className="flex items-center space-x-1 p-1">
-                        <ThumbsUp className="h-4 w-4" />
-                        <span>{tip.likes}</span>
-                      </Button>
-                      <Button variant="ghost" className={`flex items-center space-x-1 p-1 ${tip.saved ? 'text-fitness-primary' : ''}`}>
-                        <BookOpen className="h-4 w-4" />
-                        <span>{tip.saved ? 'Saved' : 'Save'}</span>
-                      </Button>
-                    </div>
-                    <Button variant="link" className="text-fitness-primary">Read more</Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="diet">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {nutritionTips.filter(tip => tip.category === "Diet Types").map((tip) => (
-                // Same card component as above
-                <Card key={tip.id} className="bg-fitness-card/90 border-fitness-border hover:border-fitness-primary/50 transition-all overflow-hidden">
-                  <div className="h-48 overflow-hidden">
-                    <img 
-                      src={tip.image} 
-                      alt={tip.title} 
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                  </div>
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="bg-fitness-muted px-2 py-1 rounded-md text-xs font-medium">
-                        {tip.category}
-                      </span>
-                      <div className="flex items-center text-sm text-gray-400">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {tip.readTime}
-                      </div>
-                    </div>
-                    <CardTitle className="text-xl">{tip.title}</CardTitle>
-                    <CardDescription>{tip.description}</CardDescription>
-                  </CardHeader>
-                  <CardFooter className="flex justify-between border-t border-fitness-border pt-4">
-                    <div className="flex items-center space-x-4">
-                      <Button variant="ghost" className="flex items-center space-x-1 p-1">
-                        <ThumbsUp className="h-4 w-4" />
-                        <span>{tip.likes}</span>
-                      </Button>
-                      <Button variant="ghost" className={`flex items-center space-x-1 p-1 ${tip.saved ? 'text-fitness-primary' : ''}`}>
-                        <BookOpen className="h-4 w-4" />
-                        <span>{tip.saved ? 'Saved' : 'Save'}</span>
-                      </Button>
-                    </div>
-                    <Button variant="link" className="text-fitness-primary">Read more</Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-          
-          {/* Similar content for other tabs */}
-          <TabsContent value="saved">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {nutritionTips.filter(tip => tip.saved).map((tip) => (
-                // Same card component as above
-                <Card key={tip.id} className="bg-fitness-card/90 border-fitness-border hover:border-fitness-primary/50 transition-all overflow-hidden">
-                  <div className="h-48 overflow-hidden">
-                    <img 
-                      src={tip.image} 
-                      alt={tip.title} 
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                  </div>
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="bg-fitness-muted px-2 py-1 rounded-md text-xs font-medium">
-                        {tip.category}
-                      </span>
-                      <div className="flex items-center text-sm text-gray-400">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {tip.readTime}
-                      </div>
-                    </div>
-                    <CardTitle className="text-xl">{tip.title}</CardTitle>
-                    <CardDescription>{tip.description}</CardDescription>
-                  </CardHeader>
-                  <CardFooter className="flex justify-between border-t border-fitness-border pt-4">
-                    <div className="flex items-center space-x-4">
-                      <Button variant="ghost" className="flex items-center space-x-1 p-1">
-                        <ThumbsUp className="h-4 w-4" />
-                        <span>{tip.likes}</span>
-                      </Button>
-                      <Button variant="ghost" className="flex items-center space-x-1 p-1 text-fitness-primary">
-                        <BookOpen className="h-4 w-4" />
-                        <span>Saved</span>
-                      </Button>
-                    </div>
-                    <Button variant="link" className="text-fitness-primary">Read more</Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-        
-        <div className="flex justify-center mt-8">
-          <Button variant="outline" className="border-fitness-primary text-fitness-primary hover:bg-fitness-primary/10">
-            Load More Articles
-          </Button>
-        </div>
+        )}
+
+        {/* Loading skeleton */}
+        {loading && !error && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        )}
+
+        {/* Articles grid */}
+        {!loading && !error && articles.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {articles.map((article, i) => (
+              <ArticleCard key={`${article.url}-${i}`} article={article} index={i} />
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && articles.length === 0 && (
+          <div className="flex flex-col items-center py-20 text-center max-w-sm mx-auto">
+            <Newspaper className="w-12 h-12 text-gray-500 mb-4" />
+            <p className="text-white font-semibold mb-1">No articles found</p>
+            <p className="text-gray-400 text-sm">Try a different category.</p>
+          </div>
+        )}
       </main>
     </div>
   );

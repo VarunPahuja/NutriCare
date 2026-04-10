@@ -1,455 +1,208 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartPie, BarChart2, TrendingUp, Calendar, Dumbbell, Timer, Database } from 'lucide-react';
-import { format, parseISO, subDays } from 'date-fns';
-import { WorkoutSession } from './TrackWorkout';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { fetchWorkoutsFromSupabase, fetchWorkoutDataFromCSV } from '@/services/workoutService';
-// Supabase removed
-// import { supabase } from "@/integrations/supabase/client";
-import WorkoutDataCharts from '@/components/insights/WorkoutDataCharts';
-import { 
-  ResponsiveContainer, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  LineChart, 
-  Line 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import type { WorkoutLog } from '@/types/database';
+import { Dumbbell, Clock, TrendingUp, Loader2 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer
 } from 'recharts';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from '@/components/ui/table';
+
+// Group workout logs by ISO week
+function groupByWeek(logs: WorkoutLog[]) {
+  const map: Record<string, number> = {};
+  logs.forEach(log => {
+    const d = new Date(log.date);
+    const startOfWeek = new Date(d);
+    startOfWeek.setDate(d.getDate() - d.getDay());
+    const key = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    map[key] = (map[key] || 0) + 1;
+  });
+  return Object.entries(map)
+    .map(([week, count]) => ({ week, count }))
+    .slice(-8); // last 8 weeks
+}
+
+function mostCommonType(logs: WorkoutLog[]) {
+  if (!logs.length) return '—';
+  const freq: Record<string, number> = {};
+  logs.forEach(l => { freq[l.type] = (freq[l.type] || 0) + 1; });
+  return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+}
 
 const MyInsights = () => {
-  // State for workout data
-  const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
-  const [workoutDurationData, setWorkoutDurationData] = useState<any[]>([]);
-  const [workoutTypeData, setWorkoutTypeData] = useState<any[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [logs, setLogs] = useState<WorkoutLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample data for nutrition charts
-  const nutritionData = [
-    { name: 'Mon', protein: 120, carbs: 180, fat: 60 },
-    { name: 'Tue', protein: 145, carbs: 150, fat: 55 },
-    { name: 'Wed', protein: 130, carbs: 190, fat: 70 },
-    { name: 'Thu', protein: 160, carbs: 170, fat: 65 },
-    { name: 'Fri', protein: 125, carbs: 200, fat: 75 },
-    { name: 'Sat', protein: 150, carbs: 160, fat: 50 },
-    { name: 'Sun', protein: 140, carbs: 185, fat: 60 },
-  ];
-
-  const weightData = [
-    { date: 'Jan', weight: 188 },
-    { date: 'Feb', weight: 186 },
-    { date: 'Mar', weight: 185 },
-    { date: 'Apr', weight: 183 },
-    { date: 'May', weight: 180 },
-    { date: 'Jun', weight: 178 },
-    { date: 'Jul', weight: 176 },
-  ];
-  
-  const calorieData = [
-    { date: 'Mon', actual: 2200, target: 2400 },
-    { date: 'Tue', actual: 2350, target: 2400 },
-    { date: 'Wed', actual: 2150, target: 2400 },
-    { date: 'Thu', actual: 2400, target: 2400 },
-    { date: 'Fri', actual: 2300, target: 2400 },
-    { date: 'Sat', actual: 2500, target: 2400 },
-    { date: 'Sun', actual: 2450, target: 2400 },
-  ];
-  
-  // Check authentication status
-  // Supabase removed - no authentication currently
   useEffect(() => {
-    // const checkAuthStatus = async () => {
-    //   const { data } = await supabase.auth.getSession();
-    //   setIsAuthenticated(!!data.session);
-    // };
-    
-    // checkAuthStatus();
-    
-    // Set up auth state change listener
-    // const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    //   setIsAuthenticated(!!session);
-    // });
-    
-    // No authentication - always set to false
-    setIsAuthenticated(false);
-    
-    // return () => subscription.unsubscribe();
-  }, []);
+    if (!profile) return;
+    (async () => {
+      const { data } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('patient_id', profile.id)
+        .order('date', { ascending: false });
+      setLogs(data || []);
+      setLoading(false);
+    })();
+  }, [profile]);
 
-  // Load workout history from appropriate source
-  useEffect(() => {
-    const loadWorkoutData = async () => {
-      let data: WorkoutSession[] = [];
-      
-      if (isAuthenticated) {
-        // Try to load from Supabase database first
-        const supabaseWorkouts = await fetchWorkoutsFromSupabase();
-        
-        if (supabaseWorkouts.length > 0) {
-          data = supabaseWorkouts;
-        } else {
-          // Try CSV as a fallback
-          const csvWorkouts = await fetchWorkoutDataFromCSV();
-          
-          if (csvWorkouts.length > 0) {
-            data = csvWorkouts;
-          } else {
-            // Use local storage as last resort
-            const savedHistory = localStorage.getItem('nutricare_workout_history');
-            if (savedHistory) {
-              try {
-                data = JSON.parse(savedHistory);
-              } catch (e) {
-                console.error('Failed to parse workout history:', e);
-              }
-            }
-          }
-        }
-      } else {
-        // If not authenticated, just use localStorage
-        const savedHistory = localStorage.getItem('nutricare_workout_history');
-        if (savedHistory) {
-          try {
-            data = JSON.parse(savedHistory);
-          } catch (e) {
-            console.error('Failed to parse workout history:', e);
-          }
-        }
-      }
-      
-      setWorkoutHistory(data);
-      
-      // Process workout data for charts
-      if (data.length > 0) {
-        processWorkoutData(data);
-      }
-    };
+  const totalDuration = logs.reduce((sum, l) => sum + l.duration_minutes, 0);
+  const weeklyData = groupByWeek(logs);
+  const commonType = mostCommonType(logs);
 
-    loadWorkoutData();
-  }, [isAuthenticated]);
-
-  // Process workout data for visualization
-  const processWorkoutData = (workoutData: WorkoutSession[]) => {
-    // Process workout duration over time
-    const durationData = workoutData.map(workout => ({
-      date: format(parseISO(workout.date), 'MMM dd'),
-      duration: Math.round(workout.duration / 60), // Convert seconds to minutes
-    }));
-    setWorkoutDurationData(durationData);
-
-    // Process workout types
-    const typeCount: Record<string, number> = {};
-    workoutData.forEach(workout => {
-      typeCount[workout.type] = (typeCount[workout.type] || 0) + 1;
-    });
-    
-    const typeData = Object.keys(typeCount).map(type => ({
-      type,
-      count: typeCount[type]
-    }));
-    setWorkoutTypeData(typeData);
-  };
-
-  // Format time for display
-  const formatTime = (totalSeconds: number) => {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  // Background decoration elements
-  const BlurredCircle = ({ className }: { className: string }) => (
-    <div className={`absolute rounded-full mix-blend-overlay blur-3xl ${className}`}></div>
-  );
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
 
   return (
     <div className="min-h-screen w-full bg-fitness-background text-white relative overflow-x-hidden">
-      {/* Background effects */}
-      <BlurredCircle className="w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10" />
-      <BlurredCircle className="w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10" />
-      
-      {/* Navigation */}
+      <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10 pointer-events-none" />
+      <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10 pointer-events-none" />
+
       <Navbar />
-      
-      <main className="container mx-auto px-4 py-6 relative z-10">
+
+      <main className="container mx-auto px-4 py-8 relative z-10">
         <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-            <h1 className="text-3xl font-bold gradient-text">
-              My Insights
-            </h1>
-            {!workoutHistory.length && isAuthenticated && (
-              <div className="text-amber-400 text-sm mt-2">
-                To view workout insights, import data from CSV in Track Workout page
-              </div>
-            )}
-          </div>
+          <h1 className="text-3xl font-bold gradient-text">My Insights</h1>
+          <p className="text-gray-400 mt-1">Your workout analytics and history.</p>
         </div>
 
-        <Tabs defaultValue="supabase" className="w-full">
-          <TabsList className="grid w-full md:w-3/4 lg:w-1/2 grid-cols-5 mb-8">
-            <TabsTrigger value="nutrition" className="flex gap-2 items-center">
-              <ChartPie className="h-4 w-4" /> Nutrition
-            </TabsTrigger>
-            <TabsTrigger value="progress" className="flex gap-2 items-center">
-              <TrendingUp className="h-4 w-4" /> Progress
-            </TabsTrigger>
-            <TabsTrigger value="calories" className="flex gap-2 items-center">
-              <BarChart2 className="h-4 w-4" /> Calories
-            </TabsTrigger>
-            <TabsTrigger value="workouts" className="flex gap-2 items-center">
-              <Dumbbell className="h-4 w-4" /> Workouts
-            </TabsTrigger>
-            <TabsTrigger value="supabase" className="flex gap-2 items-center">
-              <Database className="h-4 w-4" /> My Data
-            </TabsTrigger>
-          </TabsList>
-          
-          {/* Nutrition Tab */}
-          <TabsContent value="nutrition">
-            <Card className="fitness-card">
-              <CardHeader>
-                <CardTitle>Weekly Macronutrient Breakdown</CardTitle>
-                <CardDescription>Track your protein, carbs, and fat intake</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={nutritionData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="name" stroke="#888" />
-                    <YAxis stroke="#888" />
-                    <Tooltip 
-                      contentStyle={{ background: '#222', border: '1px solid #333' }} 
-                    />
-                    <Legend />
-                    <Bar dataKey="protein" name="Protein (g)" fill="#9b87f5" />
-                    <Bar dataKey="carbs" name="Carbs (g)" fill="#1EAEDB" />
-                    <Bar dataKey="fat" name="Fat (g)" fill="#7E69AB" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Progress Tab */}
-          <TabsContent value="progress">
-            <Card className="fitness-card">
-              <CardHeader>
-                <CardTitle>Weight Tracking</CardTitle>
-                <CardDescription>Monthly weight progress (lbs)</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={weightData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="date" stroke="#888" />
-                    <YAxis stroke="#888" domain={['dataMin - 5', 'dataMax + 5']} />
-                    <Tooltip 
-                      contentStyle={{ background: '#222', border: '1px solid #333' }} 
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="weight" 
-                      stroke="#9b87f5" 
-                      strokeWidth={2}
-                      dot={{ r: 4 }} 
-                      activeDot={{ r: 8 }} 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Calories Tab */}
-          <TabsContent value="calories">
-            <Card className="fitness-card">
-              <CardHeader>
-                <CardTitle>Calorie Tracking</CardTitle>
-                <CardDescription>Daily calorie intake vs target</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={calorieData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="date" stroke="#888" />
-                    <YAxis stroke="#888" domain={['dataMin - 100', 'dataMax + 100']} />
-                    <Tooltip 
-                      contentStyle={{ background: '#222', border: '1px solid #333' }} 
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="actual" 
-                      name="Actual Calories"
-                      stroke="#9b87f5" 
-                      strokeWidth={2}
-                      dot={{ r: 4 }} 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="target" 
-                      name="Target Calories"
-                      stroke="#1EAEDB" 
-                      strokeWidth={2}
-                      dot={{ r: 4 }} 
-                      strokeDasharray="5 5"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Workouts Tab */}
-          <TabsContent value="workouts">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Workout Duration Chart */}
-              <Card className="fitness-card">
-                <CardHeader>
-                  <CardTitle>Workout Duration</CardTitle>
-                  <CardDescription>Minutes spent working out per session</CardDescription>
-                </CardHeader>
-                <CardContent className="h-80">
-                  {workoutDurationData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={workoutDurationData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                        <XAxis dataKey="date" stroke="#888" />
-                        <YAxis stroke="#888" />
-                        <Tooltip 
-                          contentStyle={{ background: '#222', border: '1px solid #333' }} 
-                        />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="duration" 
-                          name="Duration (min)"
-                          stroke="#9b87f5" 
-                          strokeWidth={2}
-                          dot={{ r: 4 }} 
-                          activeDot={{ r: 8 }} 
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400">
-                      No workout data available
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Workout Type Distribution */}
-              <Card className="fitness-card">
-                <CardHeader>
-                  <CardTitle>Workout Type Distribution</CardTitle>
-                  <CardDescription>Breakdown of workout types</CardDescription>
-                </CardHeader>
-                <CardContent className="h-80">
-                  {workoutTypeData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={workoutTypeData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                        <XAxis dataKey="type" stroke="#888" />
-                        <YAxis stroke="#888" />
-                        <Tooltip 
-                          contentStyle={{ background: '#222', border: '1px solid #333' }} 
-                        />
-                        <Legend />
-                        <Bar dataKey="count" name="Number of Workouts" fill="#1EAEDB" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400">
-                      No workout data available
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Recent Workout History */}
-              <Card className="fitness-card lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Recent Workout History</CardTitle>
-                  <CardDescription>Your latest recorded workouts</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {workoutHistory.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[180px]">Date</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Duration</TableHead>
-                            <TableHead>Exercises</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {[...workoutHistory]
-                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                            .slice(0, 5)
-                            .map((workout) => (
-                              <TableRow key={workout.id}>
-                                <TableCell>{format(parseISO(workout.date), 'MMM dd, yyyy')}</TableCell>
-                                <TableCell className="capitalize">{workout.type}</TableCell>
-                                <TableCell>{formatTime(workout.duration)}</TableCell>
-                                <TableCell>{workout.exercises.length} exercises</TableCell>
-                              </TableRow>
-                            ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <div className="py-6 text-center text-gray-400">
-                      No workout data available. Track your workouts to see analysis here.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+        {loading ? (
+          <div className="flex justify-center py-24">
+            <Loader2 className="w-8 h-8 animate-spin text-fitness-primary" />
+          </div>
+        ) : logs.length === 0 ? (
+          /* ── Empty State ── */
+          <div className="flex flex-col items-center text-center max-w-md mx-auto py-24">
+            <div className="w-16 h-16 bg-fitness-primary/10 rounded-2xl flex items-center justify-center mb-5">
+              <Dumbbell className="w-8 h-8 text-fitness-primary" />
             </div>
-          </TabsContent>
-          
-          {/* Supabase Workout Data Tab */}
-          <TabsContent value="supabase">
-            <Card className="fitness-card mb-6">
+            <h2 className="text-xl font-semibold text-white mb-2">No workouts logged yet</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Start tracking your workouts to see insights here.
+            </p>
+            <Button asChild className="bg-fitness-primary hover:bg-fitness-primary/80">
+              <Link to="/track-workout">Log a Workout</Link>
+            </Button>
+          </div>
+        ) : (
+          /* ── Dashboard ── */
+          <div className="space-y-6">
+            {/* Stats row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                {
+                  icon: Dumbbell,
+                  label: 'Total Workouts',
+                  value: String(logs.length),
+                  color: 'text-fitness-primary',
+                  bg: 'bg-fitness-primary/10',
+                },
+                {
+                  icon: Clock,
+                  label: 'Total Duration',
+                  value: `${Math.floor(totalDuration / 60)}h ${totalDuration % 60}m`,
+                  color: 'text-blue-400',
+                  bg: 'bg-blue-500/10',
+                },
+                {
+                  icon: TrendingUp,
+                  label: 'Top Workout Type',
+                  value: commonType,
+                  color: 'text-emerald-400',
+                  bg: 'bg-emerald-500/10',
+                },
+              ].map(stat => (
+                <div
+                  key={stat.label}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-6 flex items-center gap-4"
+                >
+                  <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">{stat.label}</p>
+                    <p className="text-xl font-bold text-white capitalize">{stat.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bar chart */}
+            <Card className="bg-white/5 border border-white/10 rounded-2xl">
               <CardHeader>
-                <CardTitle>My Workout Analytics</CardTitle>
-                <CardDescription>Insights from your Supabase workout data</CardDescription>
+                <CardTitle className="text-sm font-semibold text-gray-300">Workouts Per Week</CardTitle>
               </CardHeader>
               <CardContent>
-                <WorkoutDataCharts />
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                      <XAxis dataKey="week" stroke="#8E9196" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="#8E9196" tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ background: '#1D1E26', border: '1px solid #2E303E', borderRadius: 8 }}
+                        labelStyle={{ color: 'white' }}
+                        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      />
+                      <Bar dataKey="count" name="Workouts" fill="var(--fitness-primary, #FF6B00)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+
+            {/* Recent workouts table */}
+            <Card className="bg-white/5 border border-white/10 rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold text-gray-300">Recent Workouts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10">
+                        <TableHead className="text-gray-400">Date</TableHead>
+                        <TableHead className="text-gray-400">Type</TableHead>
+                        <TableHead className="text-gray-400">Duration</TableHead>
+                        <TableHead className="text-gray-400">Intensity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {logs.slice(0, 10).map(log => (
+                        <TableRow key={log.id} className="border-white/5 hover:bg-white/5">
+                          <TableCell className="text-gray-300">{formatDate(log.date)}</TableCell>
+                          <TableCell className="capitalize text-gray-300">{log.type}</TableCell>
+                          <TableCell className="text-gray-300">{log.duration_minutes} min</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              log.intensity === 'high' ? 'bg-red-500/20 text-red-400' :
+                              log.intensity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-green-500/20 text-green-400'
+                            }`}>
+                              {log.intensity}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
     </div>
   );

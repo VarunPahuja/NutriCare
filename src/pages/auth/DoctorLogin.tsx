@@ -2,52 +2,73 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Stethoscope, Mail, Lock } from 'lucide-react';
-import { toast } from 'sonner';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Mail, Lock, Loader2, Stethoscope } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const DoctorLogin = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({ email: '', password: '' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setError('');
     setLoading(true);
-    
+
     try {
-      // TODO: Connect to backend API later
-      // For now, just create/update localStorage (no validation)
-      const userData = {
-        name: 'Doctor',
-        email: formData.email || 'doctor@example.com',
-        role: 'DOCTOR',
-        createdAt: new Date().toISOString(),
-      };
-      
-      localStorage.setItem('nutricare_user', JSON.stringify(userData));
-      localStorage.setItem('nutricare_auth_token', 'mock_token_' + Date.now());
-      localStorage.setItem('nutricare_is_authenticated', 'true');
-      
-      toast.success('Welcome back, Doctor!');
-      
-      // Redirect to dashboard
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
-    } catch (error) {
-      toast.error('Failed to login. Please try again.');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInError) throw signInError;
+      if (!data.user) throw new Error('Sign in failed');
+
+      // Fetch profile to check role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      // If profile doesn't exist yet, create one
+      if (!profile) {
+        const email = data.user.email ?? formData.email;
+        const fullName =
+          (data.user.user_metadata?.full_name as string | undefined) ??
+          (data.user.user_metadata?.name as string | undefined) ??
+          email;
+
+        const { error: insertError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          role: 'doctor',
+          full_name: fullName,
+          email,
+        });
+
+        if (insertError) throw insertError;
+      }
+
+      const profileRole = profile?.role ?? 'doctor';
+      if (profileRole !== 'doctor') {
+        await supabase.auth.signOut();
+        setError('This is not a doctor account. Please use Patient Login.');
+        return;
+      }
+
+      navigate('/dashboard');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -55,12 +76,10 @@ const DoctorLogin = () => {
 
   return (
     <div className="min-h-screen w-full bg-fitness-background text-white flex items-center justify-center p-4">
-      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute w-[500px] h-[500px] -top-64 -left-64 bg-fitness-accent/10 rounded-full mix-blend-overlay blur-3xl"></div>
-        <div className="absolute w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-primary/10 rounded-full mix-blend-overlay blur-3xl"></div>
+        <div className="absolute w-[500px] h-[500px] -top-64 -left-64 bg-fitness-accent/10 rounded-full mix-blend-overlay blur-3xl" />
+        <div className="absolute w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-primary/10 rounded-full mix-blend-overlay blur-3xl" />
       </div>
-
       <Card className="w-full max-w-md bg-fitness-background/80 border-fitness-accent/20 relative z-10">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
@@ -75,16 +94,24 @@ const DoctorLogin = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+                {error}
+              </div>
+            )}
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
+              <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  type="email"
+                  id="email"
                   name="email"
+                  type="email"
                   placeholder="doctor@example.com"
                   value={formData.email}
                   onChange={handleChange}
+                  required
                   className="pl-10 bg-gray-900 border-fitness-accent/30 text-white"
                   disabled={loading}
                 />
@@ -92,15 +119,17 @@ const DoctorLogin = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  type="password"
+                  id="password"
                   name="password"
+                  type="password"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange}
+                  required
                   className="pl-10 bg-gray-900 border-fitness-accent/30 text-white"
                   disabled={loading}
                 />
@@ -112,24 +141,31 @@ const DoctorLogin = () => {
               className="w-full bg-fitness-accent hover:bg-fitness-accent/80"
               disabled={loading}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing In...
+                </>
+              ) : (
+                'Sign In as Doctor'
+              )}
             </Button>
           </form>
-
-          <div className="mt-4 text-center text-sm">
-            <span className="text-gray-400">Don't have an account? </span>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-2">
+          <div className="text-sm text-center text-gray-400">
+            Don't have an account?{' '}
             <Link to="/signup/doctor" className="text-fitness-accent hover:underline">
               Sign up
             </Link>
           </div>
-
-          <div className="mt-2 text-center text-sm">
-            <span className="text-gray-400">Are you a patient? </span>
-            <Link to="/login/patient" className="text-fitness-primary hover:underline">
-              Patient login
+          <div className="text-sm text-center text-gray-400">
+            Are you a patient?{' '}
+            <Link to="/signin/patient" className="text-fitness-primary hover:underline">
+              Patient Login
             </Link>
           </div>
-        </CardContent>
+        </CardFooter>
       </Card>
     </div>
   );

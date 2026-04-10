@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
-// Environment-based API configuration with fallback for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const defaultInput = {
   Age: 19,
@@ -24,9 +25,20 @@ function getRatios(goal: string) {
   return { carb: 0.40, protein: 0.30, fat: 0.30 };
 }
 
+interface PredictionResult {
+  protein: number;
+  carbs: number;
+  fat: number;
+  calories: number;
+  bmi: number;
+  ratios: { carb: number; protein: number; fat: number };
+}
+
 export default function NutritionPrediction() {
+  const { profile } = useAuth();
   const [input, setInput] = useState(defaultInput);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [history, setHistory] = useState<Array<{ result: PredictionResult; date: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,8 +60,7 @@ export default function NutritionPrediction() {
     setError("");
     const bmi = calculateBMI(input.Weight, input.Height);
     const ratios = getRatios(input.Goal);
-    // One-hot encoding for gender and disease
-    const payload: any = {
+    const payload: Record<string, number> = {
       Age: input.Age,
       BMI: bmi,
       Carb_ratio: ratios.carb,
@@ -67,11 +78,27 @@ export default function NutritionPrediction() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      setResult({ ...data, bmi, ratios });
-    } catch (err: any) {
-      setError(err.message || "Error");
+      const predictionResult: PredictionResult = { ...data, bmi, ratios };
+      setResult(predictionResult);
+
+      // Save to prediction_history if user is logged in
+      if (profile) {
+        await supabase.from('prediction_history').insert({
+          patient_id: profile.id,
+          inputs: input as Record<string, unknown>,
+          result: { protein: data.protein, carbs: data.carbs, fat: data.fat, calories: data.calories },
+        });
+        setHistory(prev => [{ result: predictionResult, date: new Date().toISOString() }, ...prev].slice(0, 3));
+      }
+    } catch (err: unknown) {
+      if (err instanceof TypeError && err.message.toLowerCase().includes('fetch')) {
+        setError('Cannot connect to prediction server. Make sure the backend is running on ' + API_BASE_URL);
+      } else {
+        const message = err instanceof Error ? err.message : 'Prediction failed';
+        setError(`Prediction failed: ${message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -79,7 +106,8 @@ export default function NutritionPrediction() {
 
   return (
     <div className="fitness-card p-6 rounded-lg shadow-md bg-fitness-background/80 border border-fitness-primary/20 mb-8">
-      <h2 className="text-2xl font-bold text-fitness-primary mb-4">Personalized Nutrition Prediction</h2>
+      <h2 className="text-2xl font-bold text-fitness-primary mb-2">Personalized Nutrition Prediction</h2>
+      <p className="text-sm text-gray-400 mb-4">AI-powered prediction based on your health profile.</p>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-3 gap-4">
           <div>
@@ -107,7 +135,7 @@ export default function NutritionPrediction() {
         </div>
         <div className="mt-2">
           <label className="block text-sm font-medium mb-1">Chronic Disease</label>
-          <div className="flex gap-6">
+          <div className="flex gap-6 flex-wrap">
             {['None', 'Diabetes', 'Heart Disease', 'Hypertension'].map(d => (
               <label key={d} className="flex items-center gap-2 text-sm">
                 <input type="radio" name="Disease" value={d} checked={input.Disease === d} onChange={() => handleRadio('Disease', d)} className="accent-fitness-accent" /> {d}
@@ -145,9 +173,9 @@ export default function NutritionPrediction() {
           <h3 className="text-lg font-bold text-fitness-primary mb-2">🎯 YOUR PERSONALIZED NUTRITION RECOMMENDATIONS</h3>
           <div className="grid grid-cols-2 gap-2 text-white mb-4">
             <div>Calories:</div><div className="font-mono">{result.calories.toFixed(0)} kcal (Derived: 4×protein + 4×carbs + 9×fat)</div>
-            <div>Protein:</div><div className="font-mono">{result.protein.toFixed(1)} g (Confidence: 64.3%)</div>
-            <div>Carbs:</div><div className="font-mono">{result.carbs.toFixed(1)} g (Confidence: 68.4%)</div>
-            <div>Fat:</div><div className="font-mono">{result.fat.toFixed(1)} g (Confidence: 78.5%)</div>
+            <div>Protein:</div><div className="font-mono">{result.protein.toFixed(1)} g</div>
+            <div>Carbs:</div><div className="font-mono">{result.carbs.toFixed(1)} g</div>
+            <div>Fat:</div><div className="font-mono">{result.fat.toFixed(1)} g</div>
           </div>
           <div className="mb-4">
             <div className="font-bold mb-1">🍽️ PRACTICAL MEAL BREAKDOWN:</div>
@@ -156,25 +184,31 @@ export default function NutritionPrediction() {
             <div>🍽️ Dinner    : {Math.round(result.calories*0.30)} kcal | {(result.protein*0.30).toFixed(1)}g protein | {(result.carbs*0.30).toFixed(1)}g carbs | {(result.fat*0.30).toFixed(1)}g fat</div>
             <div>🍎 Snacks    : {Math.round(result.calories*0.10)} kcal | {(result.protein*0.10).toFixed(1)}g protein | {(result.carbs*0.10).toFixed(1)}g carbs | {(result.fat*0.10).toFixed(1)}g fat</div>
           </div>
-          <div className="mb-4">
-            <div className="font-bold mb-1">🥘 EXAMPLE FOODS TO REACH THESE TARGETS:</div>
-            <div>• Protein: {(result.protein/25).toFixed(1)} servings of chicken breast (25g protein each)</div>
-            <div>• Carbs  : {(result.carbs/30).toFixed(1)} cups of rice/pasta (30g carbs each)</div>
-            <div>• Fat    : {(result.fat/14).toFixed(1)} tbsp of olive oil/nuts (14g fat each)</div>
-          </div>
-          <div className="mb-2">
-            <div className="font-bold mb-1">📈 Model Performance Scores:</div>
-            <div>• Fat Prediction: 78.5% accuracy (R² = 0.785)</div>
-            <div>• Carbs Prediction: 68.4% accuracy (R² = 0.684)</div>
-            <div>• Protein Prediction: 64.3% accuracy (R² = 0.643)</div>
-            <div>• Calories: Derived using nutrition science (4-4-9 rule)</div>
-          </div>
           <div className="mb-2">
             <div className="font-bold mb-1">💡 What this means:</div>
-            <div>• These are science-based recommendations</div>
-            <div>• Model trained on 5000+ patient records</div>
-            <div>• Accounts for your health conditions & demographics</div>
-            <div>• Calories derived using established nutrition science</div>
+            <div>• AI-powered prediction based on your health profile</div>
+            <div>• Accounts for your health conditions &amp; demographics</div>
+            <div>• Calories derived using established nutrition science (4-4-9 rule)</div>
+          </div>
+        </div>
+      )}
+
+      {/* Prediction history */}
+      {history.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-base font-semibold text-gray-300 mb-3">Recent Predictions</h3>
+          <div className="space-y-2">
+            {history.map((h, i) => (
+              <div key={i} className="bg-fitness-muted/30 rounded p-3 border border-fitness-border text-sm">
+                <p className="text-xs text-gray-400 mb-1">{new Date(h.date).toLocaleString()}</p>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div><p className="text-xs text-gray-500">Calories</p><p className="font-medium">{h.result.calories.toFixed(0)}</p></div>
+                  <div><p className="text-xs text-gray-500">Protein</p><p className="font-medium">{h.result.protein.toFixed(1)}g</p></div>
+                  <div><p className="text-xs text-gray-500">Carbs</p><p className="font-medium">{h.result.carbs.toFixed(1)}g</p></div>
+                  <div><p className="text-xs text-gray-500">Fat</p><p className="font-medium">{h.result.fat.toFixed(1)}g</p></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

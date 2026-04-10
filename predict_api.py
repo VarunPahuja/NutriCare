@@ -6,6 +6,7 @@ from openai import OpenAI
 import joblib
 import pandas as pd
 import os
+import traceback
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -16,7 +17,19 @@ load_dotenv()
 print("OpenRouter key loaded:", bool(os.getenv("OPENROUTER_API_KEY")))
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://localhost:8082",
+        "http://localhost:8083",
+        "http://localhost:5173",
+        os.getenv("FRONTEND_URL", "http://localhost:8080")
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 def process_llm_response(response_text: str) -> dict:
     """Post-process LLM response into structured JSON sections"""
@@ -91,6 +104,10 @@ if os.getenv("OPENROUTER_API_KEY"):
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "models" / "best_model_Advanced.joblib"
 model = joblib.load(MODEL_PATH)
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 @app.post("/predict")
 async def predict(request: Request):
@@ -169,20 +186,21 @@ Keep under 300 words."""
     user_message += request.message
     
     try:
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
         response = client.chat.completions.create(
-            model="mistralai/mistral-7b-instruct",
+            model="nvidia/nemotron-3-super-120b-a12b:free",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ]
         )
-        
-        # Get raw response text
         raw_response = response.choices[0].message.content
-        
-        # Post-process into structured JSON
         structured_response = process_llm_response(raw_response)
-        
         return structured_response
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenRouter API error: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")

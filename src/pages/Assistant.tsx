@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Loader2, MessageCircle, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 // Type definitions for structured LLM response
 interface StructuredResponse {
@@ -23,6 +24,7 @@ interface FallbackResponse {
 type ApiResponse = StructuredResponse | FallbackResponse;
 
 const AssistantPage = () => {
+  const { profile } = useAuth();
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,8 +36,8 @@ const AssistantPage = () => {
   const [goal, setGoal] = useState('');
   const [conditions, setConditions] = useState<string[]>([]);
 
-  // Environment-based API configuration with fallback
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  // Environment-based API configuration with localhost fallback
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
   // Background decoration elements
   const BlurredCircle = ({ className }: { className: string }) => (
@@ -67,13 +69,15 @@ const AssistantPage = () => {
             weight: weight ? parseInt(weight) : null,
             activity,
             goal,
-            conditions
+            conditions,
+            name: profile?.full_name || null,
           }
         }),
       });
       
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP error! status: ${res.status}`);
       }
       
       const data: ApiResponse = await res.json();
@@ -104,7 +108,13 @@ const AssistantPage = () => {
       }
     } catch (err: any) {
       console.error('Chat API error:', err);
-      setResponse("AI service temporarily unavailable.");
+      if (err instanceof TypeError && err.message.toLowerCase().includes('fetch')) {
+        setResponse(`Cannot connect to AI server. Make sure the backend is running on ${API_BASE_URL}`);
+      } else {
+        // Try to surface the real error detail from the response
+        const detail = err?.detail || err?.message || 'AI service temporarily unavailable.';
+        setResponse(detail);
+      }
     } finally {
       setLoading(false);
     }

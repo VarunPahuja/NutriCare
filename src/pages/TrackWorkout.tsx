@@ -31,9 +31,8 @@ import {
   Upload
 } from 'lucide-react';
 import { toast } from "sonner";
-import { fetchWorkoutDataFromCSV, saveWorkoutToSupabase, fetchWorkoutsFromSupabase } from '@/services/workoutService';
-// Supabase removed
-// import { supabase } from "@/integrations/supabase/client";
+import { fetchWorkoutDataFromCSV, saveWorkout, getWorkouts } from '@/services/workoutService';
+import { supabase } from '@/lib/supabase';
 
 export interface Exercise {
   id: number;
@@ -66,58 +65,41 @@ const TrackWorkout = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Supabase removed - no authentication currently
-    // const checkAuthStatus = async () => {
-    //   const { data } = await supabase.auth.getSession();
-    //   setIsAuthenticated(!!data.session);
-    // };
-    
-    // checkAuthStatus();
-    
-    // const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    //   setIsAuthenticated(!!session);
-    // });
-    
-    // No authentication - always set to false
-    setIsAuthenticated(false);
-    
-    // return () => subscription.unsubscribe();
+    const checkAuthStatus = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+    };
+    checkAuthStatus();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     const loadWorkoutHistory = async () => {
       if (isAuthenticated) {
-        const supabaseWorkouts = await fetchWorkoutsFromSupabase();
-        
-        if (supabaseWorkouts.length > 0) {
-          setWorkoutHistory(supabaseWorkouts);
-        } else {
-          const csvWorkouts = await fetchWorkoutDataFromCSV();
-          if (csvWorkouts.length > 0) {
-            setWorkoutHistory(csvWorkouts);
-          } else {
-            const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
-            if (savedHistory) {
-              try {
-                setWorkoutHistory(JSON.parse(savedHistory));
-              } catch (e) {
-                console.error('Failed to parse workout history:', e);
-              }
-            }
-          }
-        }
-      } else {
-        const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
-        if (savedHistory) {
-          try {
-            setWorkoutHistory(JSON.parse(savedHistory));
-          } catch (e) {
-            console.error('Failed to parse workout history:', e);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const supabaseWorkouts = await getWorkouts(session.user.id);
+          if (supabaseWorkouts.length > 0) {
+            setWorkoutHistory(supabaseWorkouts as unknown as WorkoutSession[]);
+            return;
           }
         }
       }
+      // Fallback: local storage history
+      const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
+      if (savedHistory) {
+        try {
+          setWorkoutHistory(JSON.parse(savedHistory));
+        } catch (e) {
+          console.error('Failed to parse workout history:', e);
+        }
+      }
     };
-
     loadWorkoutHistory();
   }, [isAuthenticated]);
 
@@ -156,24 +138,33 @@ const TrackWorkout = () => {
       duration: timerSeconds,
       exercises: [...exercises]
     };
-    
+
     const updatedHistory = [...workoutHistory, newWorkout];
     setWorkoutHistory(updatedHistory);
-    
-    localStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updatedHistory));
-    
+
     if (isAuthenticated) {
-      await saveWorkoutToSupabase(newWorkout);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await saveWorkout({
+          patient_id: session.user.id,
+          type: workoutType,
+          duration_minutes: Math.floor(timerSeconds / 60),
+          intensity: 'medium',
+          date: new Date().toISOString().split('T')[0],
+        });
+      }
     } else {
+      localStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updatedHistory));
       toast.success("Workout saved successfully!", {
         description: `${exercises.length} exercises recorded in ${formatTime(timerSeconds)}. Data available in My Insights.`,
         duration: 4000,
       });
     }
-    
+
     setTimerSeconds(0);
     setTimerActive(false);
   };
+
 
   const handleImportFromCSV = async () => {
     if (!isAuthenticated) {

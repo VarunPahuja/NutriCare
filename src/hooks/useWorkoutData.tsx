@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
-// Supabase removed - using mock data
-// import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { supabase } from '@/lib/supabase';
+import type { WorkoutLog } from '@/types/database';
+import { toast } from 'sonner';
 
+// Legacy types kept for MyInsights compatibility
 export interface WorkoutData {
   date: string;
   exercise_name: string;
@@ -33,26 +33,36 @@ export interface VolumeOverTime {
 }
 
 export function useWorkoutData() {
+  const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [workoutData, setWorkoutData] = useState<WorkoutData[]>([]);
-  const [totalWeightByDay, setTotalWeightByDay] = useState<TotalWeightByDay[]>([]);
-  const [popularExercises, setPopularExercises] = useState<ExerciseFrequency[]>([]);
-  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([]);
-  const [volumeOverTime, setVolumeOverTime] = useState<VolumeOverTime[]>([]);
+  const [totalWeightByDay] = useState<TotalWeightByDay[]>([]);
+  const [popularExercises] = useState<ExerciseFrequency[]>([]);
+  const [personalRecords] = useState<PersonalRecord[]>([]);
+  const [volumeOverTime] = useState<VolumeOverTime[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase removed - using empty data for now
     async function fetchWorkoutData() {
       setIsLoading(true);
       try {
-        // Mock empty data since Supabase is removed
-        const data: WorkoutData[] = [];
-        
-        setWorkoutData(data);
-        processWorkoutData(data);
-      } catch (error) {
-        console.error('Error fetching workout data:', error);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setIsLoading(false);
+          return;
+        }
+
+        const { data, error: fetchError } = await supabase
+          .from('workout_logs')
+          .select('*')
+          .eq('patient_id', session.user.id)
+          .order('date', { ascending: false });
+
+        if (fetchError) throw fetchError;
+        setLogs(data || []);
+        setWorkoutData([]); // workout_logs use different schema, keep legacy type empty
+      } catch (err) {
+        console.error('Error fetching workout data:', err);
         setError('Failed to load workout data');
         toast.error('Failed to load workout data');
       } finally {
@@ -63,67 +73,14 @@ export function useWorkoutData() {
     fetchWorkoutData();
   }, []);
 
-  const processWorkoutData = (data: WorkoutData[]) => {
-    // Process total weight lifted per day
-    const weightByDayMap = new Map<string, number>();
-    
-    // Process volume over time
-    const volumeByDayMap = new Map<string, number>();
-    
-    // Process exercise frequency
-    const exerciseCountMap = new Map<string, number>();
-    
-    // Process personal records
-    const prMap = new Map<string, number>();
-
-    data.forEach(workout => {
-      // Format date to YYYY-MM-DD
-      const dateStr = new Date(workout.date).toISOString().split('T')[0];
-      
-      // Calculate total weight for this set
-      const setWeight = workout.set_weight * workout.set_repetitions;
-      
-      // Add to total weight by day
-      weightByDayMap.set(dateStr, (weightByDayMap.get(dateStr) || 0) + setWeight);
-      
-      // Add to volume by day
-      volumeByDayMap.set(dateStr, (volumeByDayMap.get(dateStr) || 0) + setWeight);
-      
-      // Count exercise frequency
-      exerciseCountMap.set(workout.exercise_name, (exerciseCountMap.get(workout.exercise_name) || 0) + 1);
-      
-      // Check for personal record
-      const currentPR = prMap.get(workout.exercise_name) || 0;
-      if (workout.set_weight > currentPR) {
-        prMap.set(workout.exercise_name, workout.set_weight);
-      }
-    });
-
-    // Convert maps to arrays for charts
-    const weightByDay = Array.from(weightByDayMap, ([date, totalWeight]) => ({ date, totalWeight }));
-    weightByDay.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    setTotalWeightByDay(weightByDay);
-
-    const volumeByDay = Array.from(volumeByDayMap, ([date, volume]) => ({ date, volume }));
-    volumeByDay.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    setVolumeOverTime(volumeByDay);
-
-    const exerciseFrequency = Array.from(exerciseCountMap, ([exercise, count]) => ({ exercise, count }));
-    exerciseFrequency.sort((a, b) => b.count - a.count);
-    setPopularExercises(exerciseFrequency.slice(0, 10)); // Get top 10
-
-    const records = Array.from(prMap, ([exercise, maxWeight]) => ({ exercise, maxWeight }));
-    records.sort((a, b) => b.maxWeight - a.maxWeight);
-    setPersonalRecords(records);
-  };
-
   return {
+    logs,
     workoutData,
     totalWeightByDay,
     popularExercises,
     personalRecords,
     volumeOverTime,
     isLoading,
-    error
+    error,
   };
 }
