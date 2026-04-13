@@ -65,7 +65,7 @@ const AssistantPage = () => {
     };
 
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const apiBase = import.meta.env.BACKEND_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const response = await fetch(`${apiBase}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
