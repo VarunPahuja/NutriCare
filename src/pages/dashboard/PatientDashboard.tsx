@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { WorkoutLog, DoctorPatient, Profile, PredictionHistory } from '@/types/database';
 import { Activity, Brain, Dumbbell, Stethoscope, ArrowRight, Loader2 } from 'lucide-react';
 
-type DoctorRelationship = DoctorPatient & { doctor?: Profile };
+type DoctorRelationship = DoctorPatient & { profiles?: Profile };
 
 const PatientDashboard = () => {
   const { profile } = useAuth();
@@ -23,31 +23,31 @@ const PatientDashboard = () => {
     async function fetchData() {
       setLoading(true);
 
-      const [workoutsRes, predictionRes, doctorRes] = await Promise.all([
+      const [workoutsRes, predictionsRes, doctorRes] = await Promise.all([
         supabase
           .from('workout_logs')
           .select('*')
-          .eq('patient_id', profile!.id)
+          .eq('patient_id', profile.id)
           .order('date', { ascending: false })
           .limit(3),
         supabase
           .from('prediction_history')
           .select('*')
-          .eq('patient_id', profile!.id)
+          .eq('patient_id', profile.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
         supabase
           .from('doctor_patient')
-          .select('*, doctor:profiles!doctor_patient_doctor_id_fkey(*)')
-          .eq('patient_id', profile!.id)
+          .select('*, profiles!doctor_id(full_name, specialty)')
+          .eq('patient_id', profile.id)
+          .eq('status', 'accepted')
           .order('created_at', { ascending: false })
-          .limit(1)
           .maybeSingle(),
       ]);
 
       setRecentWorkouts(workoutsRes.data || []);
-      setLastPrediction(predictionRes.data || null);
+      setLastPrediction(predictionsRes.data || null);
       setDoctorRelationship(doctorRes.data as DoctorRelationship | null);
       setLoading(false);
     }
@@ -102,17 +102,17 @@ const PatientDashboard = () => {
                   <div>
                     <div className="text-amber-400 text-sm font-medium mb-1">Pending Approval</div>
                     <p className="text-sm text-gray-400">
-                      Waiting for {(doctorRelationship.doctor as Profile)?.full_name || 'your doctor'} to accept your request.
+                      Waiting for {doctorRelationship.profiles?.full_name || 'your doctor'} to accept your request.
                     </p>
                   </div>
                 ) : doctorRelationship.status === 'accepted' ? (
                   <div>
                     <div className="text-green-400 text-sm font-medium mb-1">Connected</div>
                     <p className="text-sm text-gray-300">
-                      {(doctorRelationship.doctor as Profile)?.full_name}
+                      {doctorRelationship.profiles?.full_name}
                     </p>
-                    {(doctorRelationship.doctor as Profile)?.specialty && (
-                      <p className="text-xs text-gray-400">{(doctorRelationship.doctor as Profile).specialty}</p>
+                    {doctorRelationship.profiles?.specialty && (
+                      <p className="text-xs text-gray-400">{doctorRelationship.profiles.specialty}</p>
                     )}
                   </div>
                 ) : (

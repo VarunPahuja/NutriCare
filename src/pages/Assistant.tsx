@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Navbar from '@/components/Navbar';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,25 +8,20 @@ import { Label } from '@/components/ui/label';
 import { Loader2, MessageCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
-// Type definitions for structured LLM response
-interface StructuredResponse {
-  summary: string;
-  recommendations: string[];
-  cautions: string[];
-}
+type ChatRole = 'user' | 'assistant';
 
-interface FallbackResponse {
-  reply?: string;
-  summary?: string;
-}
-
-type ApiResponse = StructuredResponse | FallbackResponse;
+type ChatMessage = {
+  role: ChatRole;
+  content: string;
+  timestamp: Date;
+};
 
 const AssistantPage = () => {
   const { profile } = useAuth();
   const [question, setQuestion] = useState('');
-  const [response, setResponse] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // Profile state
   const [age, setAge] = useState('');
@@ -36,13 +30,14 @@ const AssistantPage = () => {
   const [goal, setGoal] = useState('');
   const [conditions, setConditions] = useState<string[]>([]);
 
-  // Environment-based API configuration with localhost fallback
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
   // Background decoration elements
   const BlurredCircle = ({ className }: { className: string }) => (
     <div className={`absolute rounded-full mix-blend-overlay blur-3xl ${className}`}></div>
   );
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleConditionChange = (condition: string, checked: boolean) => {
     if (checked) {
@@ -52,69 +47,84 @@ const AssistantPage = () => {
     }
   };
 
-  const handleAsk = async () => {
-    if (!question.trim()) return;
-    
+  const sendMessage = async (message: string) => {
+    if (!message.trim()) return;
+
     setLoading(true);
-    setResponse('');
-    
+    const userMsg: ChatMessage = { role: 'user', content: message, timestamp: new Date() };
+    const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: new Date() };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+
+    const userContext = {
+      age: age ? parseInt(age, 10) : null,
+      weight: weight ? parseInt(weight, 10) : null,
+      activity,
+      goal,
+      conditions,
+      name: profile?.full_name || null,
+    };
+
     try {
-      const res = await fetch(`${API_BASE_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: question,
-          context: {
-            age: age ? parseInt(age) : null,
-            weight: weight ? parseInt(weight) : null,
-            activity,
-            goal,
-            conditions,
-            name: profile?.full_name || null,
-          }
-        }),
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiBase}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, context: userContext }),
       });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP error! status: ${res.status}`);
-      }
-      
-      const data: ApiResponse = await res.json();
-      
-      // Handle new structured response format
-      if ('summary' in data && 'recommendations' in data && 'cautions' in data) {
-        let formattedResponse = `${data.summary}\n\n`;
-        
-        if (data.recommendations.length > 0) {
-          formattedResponse += "Key Recommendations:\n";
-          data.recommendations.forEach((rec: string) => {
-            formattedResponse += `• ${rec}\n`;
-          });
-          formattedResponse += "\n";
+
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error('No response body');
+
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data: ')) continue;
+
+          const data = line.slice(6);
+          if (data === '[DONE]') break;
+
+          try {
+            const parsed = JSON.parse(data) as { content?: string; error?: string };
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.content) {
+              setMessages((prev) => {
+                if (!prev.length) return prev;
+                const updated = [...prev];
+                const idx = updated.length - 1;
+                updated[idx] = {
+                  ...updated[idx],
+                  content: `${updated[idx].content}${parsed.content}`,
+                };
+                return updated;
+              });
+            }
+          } catch {
+            // Ignore malformed partial payloads
+          }
         }
-        
-        if (data.cautions.length > 0) {
-          formattedResponse += "What To Be Careful About:\n";
-          data.cautions.forEach((caut: string) => {
-            formattedResponse += `• ${caut}\n`;
-          });
-        }
-        
-        setResponse(formattedResponse);
-      } else {
-        // Fallback for old format or raw text
-        setResponse(data.reply || data.summary || "No response received.");
       }
-    } catch (err: any) {
-      console.error('Chat API error:', err);
-      if (err instanceof TypeError && err.message.toLowerCase().includes('fetch')) {
-        setResponse(`Cannot connect to AI server. Make sure the backend is running on ${API_BASE_URL}`);
-      } else {
-        // Try to surface the real error detail from the response
-        const detail = err?.detail || err?.message || 'AI service temporarily unavailable.';
-        setResponse(detail);
-      }
+    } catch {
+      setMessages((prev) => {
+        if (!prev.length) return prev;
+        const updated = [...prev];
+        const idx = updated.length - 1;
+        updated[idx] = {
+          ...updated[idx],
+          content: 'Sorry, I could not process your request. Please try again.',
+        };
+        return updated;
+      });
     } finally {
       setLoading(false);
     }
@@ -122,8 +132,19 @@ const AssistantPage = () => {
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleAsk();
+      e.preventDefault();
+      const message = question.trim();
+      if (!message) return;
+      setQuestion('');
+      sendMessage(message);
     }
+  };
+
+  const handleAsk = () => {
+    const message = question.trim();
+    if (!message) return;
+    setQuestion('');
+    sendMessage(message);
   };
 
   return (
@@ -259,10 +280,10 @@ const AssistantPage = () => {
                     className="flex-1 bg-fitness-muted border-fitness-border focus:border-fitness-primary"
                     disabled={loading}
                   />
-                  <Button 
+                  <button
                     onClick={handleAsk}
                     disabled={loading || !question.trim()}
-                    className="bg-fitness-primary hover:bg-fitness-primary/90"
+                    className="bg-fitness-primary hover:bg-fitness-primary/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <>
@@ -272,30 +293,41 @@ const AssistantPage = () => {
                     ) : (
                       'Ask'
                     )}
-                  </Button>
+                  </button>
                 </div>
               </CardContent>
             </Card>
 
             {/* Response Section */}
-            {(response || loading) && (
+            {messages.length > 0 && (
               <Card className="fitness-card">
                 <CardHeader>
-                  <CardTitle>AI Response</CardTitle>
+                  <CardTitle>Conversation</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-fitness-primary" />
-                      <span className="ml-3 text-gray-400">Generating response...</span>
-                    </div>
-                  ) : (
-                    <div className="prose prose-invert max-w-none">
-                      <div className="bg-fitness-muted/50 rounded-lg p-4 border border-fitness-border">
-                        <p className="text-white mb-0">{response}</p>
+                <CardContent className="space-y-3 max-h-[430px] overflow-y-auto">
+                  {messages.map((message, index) => {
+                    const isAssistant = message.role === 'assistant';
+                    const isLast = index === messages.length - 1;
+                    return (
+                      <div
+                        key={`${message.timestamp.getTime()}-${index}`}
+                        className={`rounded-lg border p-4 ${
+                          isAssistant
+                            ? 'bg-fitness-muted/50 border-fitness-border'
+                            : 'bg-fitness-primary/10 border-fitness-primary/30'
+                        }`}
+                      >
+                        <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
+                          {isAssistant ? 'Assistant' : 'You'}
+                        </p>
+                        <p className="text-white whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                          {loading && isAssistant && isLast ? '▋' : ''}
+                        </p>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
+                  <div ref={bottomRef} />
                 </CardContent>
               </Card>
             )}

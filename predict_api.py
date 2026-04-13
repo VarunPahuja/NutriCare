@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
 import joblib
 import pandas as pd
 import os
-import traceback
+import json
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -19,16 +20,10 @@ print("OpenRouter key loaded:", bool(os.getenv("OPENROUTER_API_KEY")))
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:8081",
-        "http://localhost:8082",
-        "http://localhost:8083",
-        "http://localhost:5173",
-        os.getenv("FRONTEND_URL", "http://localhost:8080")
-    ],
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    allow_credentials=False,
 )
 
 def process_llm_response(response_text: str) -> dict:
@@ -134,73 +129,50 @@ async def predict(request: Request):
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    if not os.getenv("OPENROUTER_API_KEY"):
-        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY environment variable not set")
-    
     if not client:
-        raise HTTPException(status_code=500, detail="OpenRouter API not available")
-    
-    # Construct system prompt
-    system_prompt = """You are a clinical nutrition assistant.
-Use the provided user profile to generate personalized advice.
-Do NOT ask follow-up questions.
-Do NOT ask for more details.
-Do NOT repeat general questionnaire.
-Provide concise, structured advice.
+        raise HTTPException(status_code=500, detail="OpenRouter API not configured")
 
-Format response strictly as:
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not set")
 
-## Summary
-(2-3 sentences personalized)
+    system_prompt = """You are a clinical nutrition assistant. Provide concise, helpful nutrition advice. Keep responses under 200 words. Be direct and practical."""
 
-## Key Recommendations
-- Bullet points
-
-## What To Be Careful About
-- Bullet points
-
-Keep under 300 words."""
-    
-    # Build user message with profile if available
     user_message = ""
     if request.context:
-        age = request.context.get('age')
-        weight = request.context.get('weight')
-        activity = request.context.get('activity')
-        goal = request.context.get('goal')
-        conditions = request.context.get('conditions', [])
-        
-        user_message += "User Profile:\n"
-        if age:
-            user_message += f"Age: {age}\n"
-        if weight:
-            user_message += f"Weight: {weight} kg\n"
-        if activity:
-            user_message += f"Activity: {activity}\n"
-        if goal:
-            user_message += f"Goal: {goal}\n"
-        if conditions:
-            user_message += f"Conditions: {', '.join(conditions)}\n"
+        for key, val in request.context.items():
+            if val:
+                user_message += f"{key}: {val}\n"
         user_message += "\n"
-    
+
     user_message += request.message
-    
-    try:
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
-        response = client.chat.completions.create(
-            model="nvidia/nemotron-3-super-120b-a12b:free",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ]
-        )
-        raw_response = response.choices[0].message.content
-        structured_response = process_llm_response(raw_response)
-        return structured_response
-    except HTTPException:
-        raise
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+
+    def generate():
+        try:
+            stream = client.chat.completions.create(
+                model="nvidia/nemotron-3-super-120b-a12b:free",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                stream=True,
+                max_tokens=400,
+            )
+
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield f"data: {json.dumps({'content': delta})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )

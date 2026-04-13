@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import type { WorkoutLog } from '@/types/database';
@@ -83,18 +81,16 @@ const MyInsights = () => {
             <Loader2 className="w-8 h-8 animate-spin text-fitness-primary" />
           </div>
         ) : logs.length === 0 ? (
-          /* ── Empty State ── */
-          <div className="flex flex-col items-center text-center max-w-md mx-auto py-24">
-            <div className="w-16 h-16 bg-fitness-primary/10 rounded-2xl flex items-center justify-center mb-5">
-              <Dumbbell className="w-8 h-8 text-fitness-primary" />
-            </div>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Dumbbell size={48} className="text-gray-600 mb-4" />
             <h2 className="text-xl font-semibold text-white mb-2">No workouts logged yet</h2>
-            <p className="text-gray-400 text-sm mb-6">
-              Start tracking your workouts to see insights here.
-            </p>
-            <Button asChild className="bg-fitness-primary hover:bg-fitness-primary/80">
-              <Link to="/track-workout">Log a Workout</Link>
-            </Button>
+            <p className="text-gray-400 text-sm mb-6">Start tracking your workouts to see insights here.</p>
+            <button
+              onClick={() => navigate('/track-workout')}
+              className="px-6 py-2 rounded-lg bg-fitness-primary text-white hover:bg-fitness-primary/90 transition"
+            >
+              Log a Workout
+            </button>
           </div>
         ) : (
           /* ── Dashboard ── */

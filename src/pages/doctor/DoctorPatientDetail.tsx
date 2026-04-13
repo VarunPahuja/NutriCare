@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import type { Profile, WorkoutLog, PredictionHistory, DoctorNote } from '@/types/database';
-import { Loader2, FileText, Dumbbell, Brain, User } from 'lucide-react';
+import type { Profile, WorkoutLog, PredictionHistory, DoctorNote, MedicationLog } from '@/types/database';
+import { Loader2, FileText, Dumbbell, Brain, User, Pill } from 'lucide-react';
 
 const DoctorPatientDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +15,7 @@ const DoctorPatientDetail = () => {
   const [workouts, setWorkouts] = useState<WorkoutLog[]>([]);
   const [predictions, setPredictions] = useState<PredictionHistory[]>([]);
   const [notes, setNotes] = useState<DoctorNote[]>([]);
+  const [medications, setMedications] = useState<MedicationLog[]>([]);
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [submittingNote, setSubmittingNote] = useState(false);
@@ -23,16 +24,18 @@ const DoctorPatientDetail = () => {
     if (!id) return;
     async function fetchData() {
       setLoading(true);
-      const [patientRes, workoutsRes, predictionsRes, notesRes] = await Promise.all([
+      const [patientRes, workoutsRes, predictionsRes, notesRes, medicationsRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('workout_logs').select('*').eq('patient_id', id).order('date', { ascending: false }),
         supabase.from('prediction_history').select('*').eq('patient_id', id).order('created_at', { ascending: false }),
         supabase.from('doctor_notes').select('*').eq('patient_id', id).eq('doctor_id', doctor?.id).order('created_at', { ascending: false }),
+        supabase.from('medication_logs').select('*').eq('patient_id', id).order('created_at', { ascending: false }),
       ]);
       setPatient(patientRes.data);
       setWorkouts(workoutsRes.data || []);
       setPredictions(predictionsRes.data || []);
       setNotes(notesRes.data || []);
+      setMedications(medicationsRes.data || []);
       setLoading(false);
     }
     fetchData();
@@ -180,6 +183,45 @@ const DoctorPatientDetail = () => {
                     <p className="text-xs text-gray-500 mt-1">{formatDate(note.created_at)}</p>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="fitness-card mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Pill className="w-5 h-5 text-fitness-primary" />
+              Medications
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {medications.length === 0 ? (
+              <p className="text-sm text-gray-400">Patient has not logged any medications yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-fitness-border text-left text-gray-400">
+                      <th className="py-2 pr-4 font-medium">Medication</th>
+                      <th className="py-2 pr-4 font-medium">Dosage</th>
+                      <th className="py-2 pr-4 font-medium">Frequency</th>
+                      <th className="py-2 pr-4 font-medium">Time</th>
+                      <th className="py-2 font-medium">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {medications.map(med => (
+                      <tr key={med.id} className="border-b border-white/5 last:border-0">
+                        <td className="py-3 pr-4 font-medium text-white">{med.name}</td>
+                        <td className="py-3 pr-4 text-gray-300">{med.dosage}</td>
+                        <td className="py-3 pr-4 text-gray-300">{med.frequency}</td>
+                        <td className="py-3 pr-4 text-gray-300">{med.time_of_day}</td>
+                        <td className="py-3 text-gray-300">{med.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>

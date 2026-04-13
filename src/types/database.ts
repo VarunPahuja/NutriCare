@@ -45,3 +45,16 @@ export interface DoctorNote {
   note: string
   created_at: string
 }
+
+export interface MedicationLog {
+  id: string
+  patient_id: string
+  name: string
+  dosage: string
+  frequency: string
+  time_of_day: string
+  start_date?: string
+  notes?: string
+  created_at: string
+}
+

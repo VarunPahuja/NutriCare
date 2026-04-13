@@ -21,19 +21,21 @@ export function useAuth() {
   }, [])
 
   async function fetchProfile(userId: string) {
-    setLoading(true)
+    const timeoutId = setTimeout(() => {
+      setLoading(false)
+    }, 4000)
+
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle()
-
-      if (error) throw error
       setProfile(data ?? null)
     } catch {
-      setProfile(null)
+      clearTimeout(timeoutId)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }

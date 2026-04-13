@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 // Public pages
-import LandingPage from "./pages/LandingPage";
+import Index from "./pages/Index";
 import SignIn from "./pages/SignIn";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +23,7 @@ import NutritionTips from "./pages/NutritionTips";
 import Settings from "./pages/Settings";
 import MyInsights from "./pages/MyInsights";
 import TrackWorkout from "./pages/TrackWorkout";
+import Medications from "./pages/Medications";
 import NutritionPredictionPage from "./pages/NutritionPrediction";
 import AssistantPage from "./pages/Assistant";
 
@@ -47,7 +48,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Index />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signin/patient" element={<PatientLogin />} />
             <Route path="/signin/doctor" element={<DoctorLogin />} />
@@ -99,6 +100,14 @@ const App = () => {
               element={
                 <ProtectedRoute roleRequired="patient">
                   <TrackWorkout />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/medications"
+              element={
+                <ProtectedRoute roleRequired="patient">
+                  <Medications />
                 </ProtectedRoute>
               }
             />

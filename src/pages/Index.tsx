@@ -1,105 +1,172 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import AdherenceHeatmap from '@/components/AdherenceHeatmap';
-import CurrentPlanOverview from '@/components/CurrentPlanOverview';
-import RecentActivities from '@/components/RecentActivities';
-import FloatingAction from '@/components/FloatingAction';
-import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Brain, Stethoscope, Dumbbell, MessageSquare, Pill, TrendingUp, ArrowRight } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+
+const features = [
+  {
+    icon: Brain,
+    title: 'AI Nutrition Prediction',
+    description: 'Get personalized macro and calorie recommendations powered by machine learning',
+  },
+  {
+    icon: Stethoscope,
+    title: 'Doctor Consultations',
+    description: 'Connect with certified nutritionists who review your progress and guide your journey',
+  },
+  {
+    icon: Dumbbell,
+    title: 'Workout Tracking',
+    description: 'Log workouts and visualize performance trends over time',
+  },
+  {
+    icon: MessageSquare,
+    title: 'AI Chat Assistant',
+    description: 'Ask nutrition questions and get instant, evidence-based answers',
+  },
+  {
+    icon: Pill,
+    title: 'Medication Tracking',
+    description: 'Log medications and share your complete health picture with your doctor',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Progress Analytics',
+    description: 'Visualize your health journey with detailed charts and insights',
+  },
+];
+
+const steps = [
+  {
+    number: '01',
+    title: 'Create Account',
+    description: 'Choose your role as patient or doctor',
+  },
+  {
+    number: '02',
+    title: 'Connect',
+    description: 'Patients request doctors, doctors accept and review',
+  },
+  {
+    number: '03',
+    title: 'Get Insights',
+    description: 'AI predictions, tracking, and personalized guidance',
+  },
+];
 
 const Index = () => {
-  const navigate = useNavigate();
+  const { profile, loading } = useAuth();
 
-  const BlurredCircle = ({ className }: { className: string }) => (
-    <div className={`absolute rounded-full mix-blend-overlay blur-3xl ${className}`}></div>
-  );
+  if (loading) return null;
 
   return (
-    <div className="min-h-screen w-full bg-fitness-background text-white relative overflow-x-hidden">
-      {/* Background effects */}
-      <BlurredCircle className="w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10" />
-      <BlurredCircle className="w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10" />
+    <div className="min-h-screen bg-fitness-background text-white relative overflow-x-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,107,0,0.12),transparent_45%)]" />
 
-      {/* Navigation */}
-      <Navbar />
-
-      <main className="container mx-auto px-4 py-6 relative z-10">
-        {/* Header section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold gradient-text">
-            Welcome to NutriCare
-          </h1>
-        </div>
-
-        {/* Main dashboard grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div>
-            <AdherenceHeatmap />
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-fitness-background/70 backdrop-blur-xl">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-fitness-primary to-orange-300 bg-clip-text text-transparent">
+            NutriCare
+          </Link>
+          <div className="flex items-center gap-3">
+            {profile ? (
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center rounded-lg bg-fitness-primary px-4 py-2 text-sm font-medium text-white hover:bg-fitness-primary/90 transition"
+              >
+                Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/signin"
+                  className="rounded-lg border border-white/20 px-4 py-2 text-sm font-medium text-white hover:bg-white/10 transition"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  className="rounded-lg bg-fitness-primary px-4 py-2 text-sm font-medium text-white hover:bg-fitness-primary/90 transition"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
-          <div>
-            <CurrentPlanOverview />
-          </div>
         </div>
+      </header>
 
-        {/* Recent activities */}
-        <div>
-          <RecentActivities />
-        </div>
-
-        {/* Resources section */}
-        <div className="mt-10">
-          <h2 className="text-xl font-bold mb-4 header-underline">Latest Nutrition Resources</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-            <div className="fitness-card p-5 flex flex-col">
-              <div className="h-40 rounded-lg overflow-hidden mb-3 bg-gradient-to-br from-emerald-500/20 to-teal-600/20 flex items-center justify-center">
-                <span className="text-4xl">🥗</span>
-              </div>
-              <h3 className="text-lg font-medium mb-1">Mediterranean Diet Tips</h3>
-              <p className="text-sm text-gray-400 mb-3">Learn how to incorporate healthy Mediterranean meals into your plan.</p>
-              <Button variant="link" className="mt-auto p-0 justify-start text-fitness-primary">
-                Read Article
-              </Button>
+      <main className="relative z-10 pt-20">
+        <section className="min-h-screen flex items-center">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
+              Your Health,
+              <br />
+              Intelligently Managed
+            </h1>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-10">
+              AI-powered nutrition predictions, doctor consultations, medication tracking, and workout insights — all in one platform.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+              <Link to="/signup" className="rounded-lg bg-fitness-primary px-6 py-3 font-semibold text-white hover:bg-fitness-primary/90 transition">
+                Get Started Free
+              </Link>
+              <Link to="/signin" className="rounded-lg border border-white/20 px-6 py-3 font-semibold text-white hover:bg-white/10 transition">
+                Sign In
+              </Link>
             </div>
-
-            <div className="fitness-card p-5 flex flex-col">
-              <div className="h-40 rounded-lg overflow-hidden mb-3 bg-gradient-to-br from-blue-500/20 to-indigo-600/20 flex items-center justify-center">
-                <span className="text-4xl">🧘</span>
-              </div>
-              <h3 className="text-lg font-medium mb-1">Mindful Eating Practices</h3>
-              <p className="text-sm text-gray-400 mb-3">How to develop a healthier relationship with food through mindfulness.</p>
-              <Button variant="link" className="mt-auto p-0 justify-start text-fitness-primary">
-                Read Article
-              </Button>
-            </div>
-
-            <div className="fitness-card p-5 flex flex-col">
-              <div className="h-40 rounded-lg overflow-hidden mb-3 bg-gradient-to-br from-red-500/20 to-orange-600/20 flex items-center justify-center">
-                <span className="text-4xl">🩺</span>
-              </div>
-              <h3 className="text-lg font-medium mb-1">Managing Blood Sugar</h3>
-              <p className="text-sm text-gray-400 mb-3">Practical tips for stabilizing blood sugar levels through smart food choices.</p>
-              <Button variant="link" className="mt-auto p-0 justify-start text-fitness-primary">
-                Read Article
-              </Button>
+            <div className="flex flex-wrap justify-center gap-3">
+              {['AI-Powered Predictions', 'Doctor Consultations', 'Real-time Insights'].map((badge) => (
+                <span key={badge} className="bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-sm text-gray-300">
+                  {badge}
+                </span>
+              ))}
             </div>
           </div>
+        </section>
 
-          <div className="flex justify-center mt-6">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/nutrition-tips')}
-              className="border-fitness-primary text-fitness-primary hover:bg-fitness-primary/10"
-            >
-              View All Resources
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+        <section className="py-20">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12">Everything you need</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {features.map((feature) => (
+                <div key={feature.title} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition">
+                  <feature.icon size={32} className="text-fitness-primary mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                  <p className="text-sm text-gray-400">{feature.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section className="py-20">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12">How it works</h2>
+            <div className="relative grid grid-cols-1 md:grid-cols-3 gap-10">
+              <div className="hidden md:block absolute left-1/4 right-1/4 top-12 h-px bg-white/10" />
+              {steps.map((step) => (
+                <div key={step.number} className="text-center relative">
+                  <div className="text-6xl font-bold opacity-20 mb-3">{step.number}</div>
+                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
+                  <p className="text-gray-400">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="pb-20">
+          <div className="container mx-auto px-4">
+            <div className="max-w-3xl mx-auto rounded-2xl border border-white/10 bg-white/5 p-10 text-center">
+              <h2 className="text-3xl font-bold mb-6">Ready to take control of your health?</h2>
+              <Link to="/signup" className="inline-flex rounded-lg bg-fitness-primary px-6 py-3 font-semibold text-white hover:bg-fitness-primary/90 transition">
+                Get Started Free
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
-
-      <FloatingAction />
     </div>
   );
 };

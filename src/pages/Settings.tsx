@@ -228,10 +228,7 @@ const Settings = () => {
                   <CardDescription>Manage your subscription and billing.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <CreditCard className="w-10 h-10 text-gray-500 mb-3" />
-                    <p className="text-gray-400">Billing management coming soon.</p>
-                  </div>
+                  <p className="text-gray-400 text-sm">Billing management coming soon.</p>
                 </CardContent>
               </Card>
             </section>

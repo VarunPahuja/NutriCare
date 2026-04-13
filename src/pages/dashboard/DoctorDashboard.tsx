@@ -23,15 +23,23 @@ const DoctorDashboard = () => {
     if (!profile) return;
     setLoading(true);
 
-    const { data } = await supabase
-      .from('doctor_patient')
-      .select('*, patient:profiles!doctor_patient_patient_id_fkey(*)')
-      .eq('doctor_id', profile.id)
-      .order('created_at', { ascending: false });
+    const [pendingRes, acceptedRes] = await Promise.all([
+      supabase
+        .from('doctor_patient')
+        .select('*, patient:profiles!doctor_patient_patient_id_fkey(*)')
+        .eq('doctor_id', profile.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('doctor_patient')
+        .select('*, patient:profiles!doctor_patient_patient_id_fkey(*)')
+        .eq('doctor_id', profile.id)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false }),
+    ]);
 
-    const all = (data || []) as PatientRequest[];
-    setPendingRequests(all.filter(r => r.status === 'pending'));
-    setAcceptedPatients(all.filter(r => r.status === 'accepted'));
+    setPendingRequests((pendingRes.data || []) as PatientRequest[]);
+    setAcceptedPatients((acceptedRes.data || []) as PatientRequest[]);
     setLoading(false);
   }
 

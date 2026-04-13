@@ -1,163 +1,203 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import type { Profile } from '@/types/database';
-import { Stethoscope, CheckCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Loader2, UserX } from 'lucide-react';
+
+type RequestStatus = 'pending' | 'accepted' | 'rejected';
+type DoctorRequest = { doctor_id: string; status: RequestStatus };
 
 const ChooseDoctor = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [doctors, setDoctors] = useState<Profile[]>([]);
+  const [requests, setRequests] = useState<DoctorRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [requestedDoctors, setRequestedDoctors] = useState<Set<string>>(new Set());
-  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [submittingDoctorId, setSubmittingDoctorId] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    async function checkExistingRelationship() {
+    const fetchData = async () => {
       if (!profile) return;
-      const { data } = await supabase
-        .from('doctor_patient')
-        .select('status')
-        .eq('patient_id', profile.id)
-        .eq('status', 'accepted')
-        .maybeSingle();
-      if (data) {
-        navigate('/dashboard');
-      }
-    }
-    checkExistingRelationship();
-  }, [profile, navigate]);
 
-  useEffect(() => {
-    async function fetchDoctors() {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'doctor');
-      setDoctors(data || []);
+      setLoading(true);
+      const [doctorRes, requestRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'doctor'),
+        supabase
+          .from('doctor_patient')
+          .select('*')
+          .eq('patient_id', profile.id),
+      ]);
+
+      setDoctors((doctorRes.data || []) as Profile[]);
+      setRequests((requestRes.data || []) as DoctorRequest[]);
       setLoading(false);
-    }
-    fetchDoctors();
-  }, []);
+    };
 
-  useEffect(() => {
-    async function fetchExistingRequests() {
-      if (!profile) return;
-      const { data } = await supabase
-        .from('doctor_patient')
-        .select('doctor_id')
-        .eq('patient_id', profile.id);
-      if (data) {
-        setRequestedDoctors(new Set(data.map(r => r.doctor_id)));
-      }
-    }
-    fetchExistingRequests();
+    fetchData();
   }, [profile]);
 
-  const handleRequest = async (doctorId: string) => {
-    if (!profile) return;
-    setSubmitting(doctorId);
-    const { error } = await supabase.from('doctor_patient').insert({
-      doctor_id: doctorId,
-      patient_id: profile.id,
-      status: 'pending',
+  const requestMap = useMemo(() => {
+    const map = new Map<string, RequestStatus>();
+    requests.forEach((request) => {
+      map.set(request.doctor_id, request.status);
     });
+    return map;
+  }, [requests]);
+
+  const handleSendRequest = async (doctor: Profile) => {
+    if (!profile) return;
+    setSubmittingDoctorId(doctor.id);
+    setNotice('');
+
+    const { error } = await supabase.from('doctor_patient').upsert(
+      {
+        doctor_id: doctor.id,
+        patient_id: profile.id,
+        status: 'pending',
+      },
+      { onConflict: 'doctor_id,patient_id' }
+    );
+
     if (!error) {
-      setRequestedDoctors(prev => new Set([...prev, doctorId]));
+      setRequests((prev) => {
+        const others = prev.filter((item) => item.doctor_id !== doctor.id);
+        return [...others, { doctor_id: doctor.id, status: 'pending' }];
+      });
+      setNotice(`Request sent to Dr. ${doctor.full_name}`);
+    } else {
+      setNotice(error.message);
     }
-    setSubmitting(null);
+
+    setSubmittingDoctorId(null);
+  };
+
+  const renderStatusAction = (doctor: Profile) => {
+    const status = requestMap.get(doctor.id);
+
+    if (!status) {
+      return (
+        <button
+          onClick={() => handleSendRequest(doctor)}
+          className="w-full mt-4 rounded-lg bg-fitness-primary px-4 py-2 text-sm font-semibold text-white hover:bg-fitness-primary/90 transition"
+          disabled={submittingDoctorId === doctor.id}
+        >
+          {submittingDoctorId === doctor.id ? 'Sending...' : 'Send Request'}
+        </button>
+      );
+    }
+
+    if (status === 'pending') {
+      return (
+        <div className="w-full mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm text-gray-300 text-center">
+          Request Sent
+        </div>
+      );
+    }
+
+    if (status === 'accepted') {
+      return (
+        <div className="w-full mt-4 rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300 text-center">
+          Your Doctor ✓
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => handleSendRequest(doctor)}
+        className="w-full mt-4 rounded-lg bg-fitness-primary px-4 py-2 text-sm font-semibold text-white hover:bg-fitness-primary/90 transition"
+        disabled={submittingDoctorId === doctor.id}
+      >
+        {submittingDoctorId === doctor.id ? 'Sending...' : 'Request Again'}
+      </button>
+    );
   };
 
   return (
-    <div className="min-h-screen w-full bg-fitness-background text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-fitness-background text-white relative overflow-x-hidden">
       <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[500px] h-[500px] -top-64 -left-64 bg-fitness-primary/10" />
       <div className="absolute rounded-full mix-blend-overlay blur-3xl w-[600px] h-[600px] top-1/3 -right-96 bg-fitness-accent/10" />
 
-      <main className="container mx-auto px-4 py-12 relative z-10 max-w-4xl">
+      <main className="container mx-auto px-4 py-12 relative z-10 max-w-5xl">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold gradient-text mb-3">Choose Your Doctor</h1>
-          <p className="text-gray-400 max-w-xl mx-auto">
-            Connect with a doctor to get personalized nutrition plans and professional oversight. You can always change this later from your settings.
-          </p>
+          <h1 className="text-3xl font-bold mb-2">Choose Your Doctor</h1>
+          <p className="text-gray-400">Select a doctor to send a consultation request</p>
         </div>
+
+        {notice && (
+          <div className="mb-6 rounded-lg border border-fitness-primary/30 bg-fitness-primary/10 p-3 text-sm text-center text-gray-200">
+            {notice}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-fitness-primary" />
           </div>
         ) : doctors.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <Stethoscope className="w-12 h-12 mx-auto mb-4 opacity-40" />
-            <p>No doctors are available at the moment.</p>
+          <div className="text-center py-16">
+            <UserX className="w-14 h-14 text-gray-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No doctors registered yet</h2>
+            <p className="text-gray-400 mb-8">Check back later as more doctors join NutriCare</p>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="rounded-lg border border-white/20 px-5 py-2 text-sm text-gray-300 hover:bg-white/10 transition"
+            >
+              Skip for now
+            </button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
-            {doctors.map(doctor => (
-              <Card key={doctor.id} className="bg-fitness-background/80 border-fitness-border hover:border-fitness-primary/40 transition-all">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-fitness-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Stethoscope className="w-6 h-6 text-fitness-accent" />
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+              {doctors.map((doctor) => {
+                const initial = doctor.full_name?.[0]?.toUpperCase() || 'D';
+                return (
+                  <div key={doctor.id} className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-full bg-fitness-primary text-white font-bold flex items-center justify-center">
+                        {initial}
                       </div>
-                      <div>
-                        <CardTitle className="text-base">{doctor.full_name}</CardTitle>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-bold">{doctor.full_name}</h3>
                         {doctor.specialty && (
-                          <CardDescription className="text-fitness-accent text-xs mt-0.5">
+                          <span className="inline-flex mt-2 rounded-full bg-fitness-primary/20 px-3 py-1 text-xs text-fitness-primary">
                             {doctor.specialty}
-                          </CardDescription>
+                          </span>
                         )}
+                        <p
+                          className="text-sm text-gray-400 mt-3"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {doctor.bio || 'No bio provided yet.'}
+                        </p>
                       </div>
                     </div>
+                    {renderStatusAction(doctor)}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {doctor.bio && (
-                    <p className="text-sm text-gray-400 mb-4">{doctor.bio}</p>
-                  )}
-                  {requestedDoctors.has(doctor.id) ? (
-                    <div className="flex items-center gap-2 text-green-400 text-sm">
-                      <CheckCircle className="w-4 h-4" />
-                      Request sent — waiting for approval
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="w-full bg-fitness-primary hover:bg-fitness-primary/80"
-                      onClick={() => handleRequest(doctor.id)}
-                      disabled={submitting === doctor.id}
-                    >
-                      {submitting === doctor.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : null}
-                      Request to Connect
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                );
+              })}
+            </div>
 
-        {requestedDoctors.size > 0 && (
-          <div className="bg-fitness-primary/10 border border-fitness-primary/30 rounded-lg p-4 text-sm text-center text-gray-300 mb-6">
-            Request sent. You can continue using the app while waiting for approval.
-          </div>
+            <div className="text-center">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Skip for now, I'll choose later
+              </button>
+            </div>
+          </>
         )}
-
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            className="border-fitness-border text-gray-400 hover:text-white"
-            onClick={() => navigate('/dashboard')}
-          >
-            I'll choose later
-            <ArrowRight className="ml-2 w-4 h-4" />
-          </Button>
-        </div>
       </main>
     </div>
   );

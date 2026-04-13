@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Search, Activity, BarChart2, Users, LogOut, Stethoscope } from 'lucide-react';
+import { Bell, Search, Activity, BarChart2, Users, LogOut, Stethoscope, Pill } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ const patientTabs = [
   { name: "AI Assistant", path: "/assistant" },
   { name: "My Insights", path: "/my-insights", icon: BarChart2 },
   { name: "Track Workout", path: "/track-workout", icon: Activity },
+  { name: "Medications", path: "/medications", icon: Pill },
   { name: "Progress", path: "/progress" },
   { name: "Nutrition Tips", path: "/nutrition-tips" },
   { name: "Settings", path: "/settings" },

@@ -22,12 +22,14 @@ const PatientSignup = () => {
 
   // Retry profile insert to handle auth.users propagation delay
   const insertProfile = async (userId: string, retries = 3): Promise<boolean> => {
+    const normalizedEmail = formData.email.trim().toLowerCase();
+
     for (let i = 0; i < retries; i++) {
       const { error } = await supabase.from('profiles').insert({
         id: userId,
         role: 'patient',
         full_name: formData.name,
-        email: formData.email,
+        email: normalizedEmail,
       });
       if (!error) return true;
       await new Promise(r => setTimeout(r, 1000));
@@ -41,16 +43,25 @@ const PatientSignup = () => {
     setLoading(true);
 
     try {
+      const normalizedEmail = formData.email.trim().toLowerCase();
+
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: normalizedEmail,
         password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name,
+            role: 'patient',
+          },
+        },
       });
 
       if (signUpError) throw signUpError;
       if (!data.user) throw new Error('No user returned from sign up');
 
-      const inserted = await insertProfile(data.user.id);
-      if (!inserted) throw new Error('Profile creation failed. Please try again.');
+      if (data.session) {
+        await insertProfile(data.user.id);
+      }
 
       setSuccess(true);
     } catch (err: unknown) {

@@ -24,7 +24,7 @@ const PatientLogin = () => {
 
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
 
@@ -42,7 +42,7 @@ const PatientLogin = () => {
 
       // If profile doesn't exist yet, create one (common when user was created outside app flows)
       if (!profile) {
-        const email = data.user.email ?? formData.email;
+        const email = data.user.email ?? formData.email.trim().toLowerCase();
         const fullName =
           (data.user.user_metadata?.full_name as string | undefined) ??
           (data.user.user_metadata?.name as string | undefined) ??
@@ -68,7 +68,11 @@ const PatientLogin = () => {
       navigate('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Login failed';
-      setError(message);
+      setError(
+        message.toLowerCase().includes('invalid login credentials')
+          ? 'Invalid login credentials. If you just signed up, confirm your email first, then try again.'
+          : message
+      );
     } finally {
       setLoading(false);
     }
