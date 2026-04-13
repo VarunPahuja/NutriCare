@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nutricare-api
+    env: python
+    buildCommand: pip install --only-binary=:all: -r requirements.txt
+    startCommand: uvicorn predict_api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
