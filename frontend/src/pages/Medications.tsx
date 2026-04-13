@@ -7,6 +7,7 @@ import { Pill, Trash2, Loader2, Plus, Clock3, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 const FREQUENCY_OPTIONS = ['Once daily', 'Twice daily', 'Three times daily', 'As needed'];
 const TIME_OPTIONS = ['Morning', 'Afternoon', 'Evening', 'Night'];
@@ -85,6 +86,7 @@ export default function Medications() {
       time_of_day: form.time_of_day,
       start_date: form.start_date || null,
       notes: combinedNotes,
+      is_prescribed: false,
     });
 
     if (withStartDate.error && withStartDate.error.message.toLowerCase().includes('start_date')) {
@@ -124,6 +126,15 @@ export default function Medications() {
     if (!date) return '—';
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  const sortedMeds = [...meds].sort((left, right) => {
+    const prescribedSort = Number(Boolean(right.is_prescribed)) - Number(Boolean(left.is_prescribed));
+    if (prescribedSort !== 0) return prescribedSort;
+    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+  });
+
+  const prescribedMeds = sortedMeds.filter((medication) => medication.is_prescribed);
+  const selfLoggedMeds = sortedMeds.filter((medication) => !medication.is_prescribed);
 
   return (
     <div className="min-h-screen w-full bg-fitness-background text-white relative overflow-x-hidden">
@@ -292,36 +303,92 @@ export default function Medications() {
                 <p className="text-gray-400 text-sm">Add your medications above to share them with your doctor</p>
               </div>
             ) : (
-              <div>
-                {meds.map((medication) => (
-                  <div key={medication.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-3">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <Pill className="w-5 h-5 text-fitness-primary" />
-                        <h3 className="text-lg font-bold">{medication.name}</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(medication.id)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition"
-                        title="Delete medication"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              <div className="space-y-6">
+                {prescribedMeds.length > 0 && (
+                  <section>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-lg">Prescribed Medications</h3>
+                      <Badge className="bg-blue-500/15 text-blue-300 border-blue-500/30">{prescribedMeds.length}</Badge>
                     </div>
+                    <div className="space-y-3">
+                      {prescribedMeds.map((medication) => (
+                        <div key={medication.id} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3">
+                            <div className="flex items-start gap-3">
+                              <Pill className="w-5 h-5 text-fitness-primary mt-0.5" />
+                              <div>
+                                <h4 className="text-lg font-bold">{medication.name}</h4>
+                                <Badge className="mt-2 bg-blue-500/15 text-blue-300 border-blue-500/30">
+                                  Prescribed by Dr. {medication.prescribed_by_name || 'Doctor'}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div><span className="text-gray-500">💊 Dosage:</span> <span className="text-gray-200">{medication.dosage}</span></div>
-                      <div><span className="text-gray-500">🔄 Frequency:</span> <span className="text-gray-200">{medication.frequency}</span></div>
-                      <div><span className="text-gray-500">⏰ Time:</span> <span className="text-gray-200">{medication.time_of_day}</span></div>
-                      <div><span className="text-gray-500">📅 Added:</span> <span className="text-gray-200">{formatDate(medication.start_date || medication.created_at)}</span></div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            <div><span className="text-gray-500">💊 Dosage:</span> <span className="text-gray-200">{medication.dosage}</span></div>
+                            <div><span className="text-gray-500">🔄 Frequency:</span> <span className="text-gray-200">{medication.frequency}</span></div>
+                            <div><span className="text-gray-500">⏰ Time:</span> <span className="text-gray-200">{medication.time_of_day}</span></div>
+                            <div><span className="text-gray-500">📅 Added:</span> <span className="text-gray-200">{formatDate(medication.start_date || medication.created_at)}</span></div>
+                          </div>
+
+                          {medication.notes && (
+                            <p className="text-sm text-gray-400 italic mt-3 border-l-2 border-white/10 pl-3">"{medication.notes}"</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
+                  </section>
+                )}
 
-                    {medication.notes && (
-                      <p className="text-sm text-gray-400 italic mt-3 border-l-2 border-white/10 pl-3">"{medication.notes}"</p>
-                    )}
-                  </div>
-                ))}
+                {prescribedMeds.length > 0 && selfLoggedMeds.length > 0 && (
+                  <div className="border-t border-white/10" />
+                )}
+
+                {selfLoggedMeds.length > 0 && (
+                  <section>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-lg">Self-Logged Medications</h3>
+                      <Badge variant="outline" className="border-white/10 bg-white/5 text-gray-300">{selfLoggedMeds.length}</Badge>
+                    </div>
+                    <div className="space-y-3">
+                      {selfLoggedMeds.map((medication) => (
+                        <div key={medication.id} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex items-start gap-3">
+                              <Pill className="w-5 h-5 text-fitness-primary mt-0.5" />
+                              <div>
+                                <h4 className="text-lg font-bold">{medication.name}</h4>
+                                <Badge variant="outline" className="mt-2 border-white/10 bg-white/5 text-gray-300">
+                                  Self-logged
+                                </Badge>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(medication.id)}
+                              className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                              title="Delete medication"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            <div><span className="text-gray-500">💊 Dosage:</span> <span className="text-gray-200">{medication.dosage}</span></div>
+                            <div><span className="text-gray-500">🔄 Frequency:</span> <span className="text-gray-200">{medication.frequency}</span></div>
+                            <div><span className="text-gray-500">⏰ Time:</span> <span className="text-gray-200">{medication.time_of_day}</span></div>
+                            <div><span className="text-gray-500">📅 Added:</span> <span className="text-gray-200">{formatDate(medication.start_date || medication.created_at)}</span></div>
+                          </div>
+
+                          {medication.notes && (
+                            <p className="text-sm text-gray-400 italic mt-3 border-l-2 border-white/10 pl-3">"{medication.notes}"</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </div>
             )}
           </section>

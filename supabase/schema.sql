@@ -93,3 +93,67 @@ create policy "Patients can create requests" on doctor_patient for insert with c
 -- doctor_notes: doctors write, patients can read notes about themselves
 create policy "Doctors can manage their notes" on doctor_notes for all using (auth.uid() = doctor_id);
 create policy "Patients can read their notes" on doctor_notes for select using (auth.uid() = patient_id);
+
+-- workout_feedback: doctors comment on workout logs, patients can read feedback on their workouts
+create table if not exists workout_feedback (
+  id uuid default gen_random_uuid() primary key,
+  workout_id uuid references workout_logs(id) on delete cascade not null,
+  doctor_id uuid references profiles(id) on delete cascade not null,
+  patient_id uuid references profiles(id) on delete cascade not null,
+  comment text not null,
+  created_at timestamp with time zone default now()
+);
+alter table workout_feedback enable row level security;
+create policy "Doctors can manage their feedback" on workout_feedback
+  for all using (auth.uid() = doctor_id) with check (auth.uid() = doctor_id);
+create policy "Patients can read their workout feedback" on workout_feedback
+  for select using (auth.uid() = patient_id);
+
+-- medication_logs: support prescribed medications from doctors
+alter table medication_logs
+  add column if not exists prescribed_by uuid references profiles(id),
+  add column if not exists prescribed_by_name text,
+  add column if not exists is_prescribed boolean default false;
+
+alter table medication_logs enable row level security;
+create policy "Patients can manage their own medication logs" on medication_logs
+  for all using (auth.uid() = patient_id and coalesce(is_prescribed, false) = false)
+  with check (auth.uid() = patient_id and coalesce(is_prescribed, false) = false);
+create policy "Doctors can prescribe medications to their patients" on medication_logs
+  for insert with check (
+    auth.uid() = prescribed_by
+    and coalesce(is_prescribed, false) = true
+    and exists (
+      select 1 from doctor_patient
+      where doctor_id = auth.uid()
+        and patient_id = medication_logs.patient_id
+        and status = 'accepted'
+    )
+  );
+create policy "Doctors can read patient medications" on medication_logs
+  for select using (
+    exists (
+      select 1 from doctor_patient
+      where doctor_id = auth.uid()
+        and patient_id = medication_logs.patient_id
+        and status = 'accepted'
+    )
+  );
+
+-- async messages between doctors and patients
+create table if not exists messages (
+  id uuid default gen_random_uuid() primary key,
+  sender_id uuid references profiles(id) on delete cascade not null,
+  receiver_id uuid references profiles(id) on delete cascade not null,
+  content text not null,
+  read boolean default false,
+  created_at timestamp with time zone default now()
+);
+alter table messages enable row level security;
+create policy "Users can send messages" on messages
+  for insert with check (auth.uid() = sender_id);
+create policy "Users can read their messages" on messages
+  for select using (auth.uid() = sender_id or auth.uid() = receiver_id);
+create policy "Users can update message read state" on messages
+  for update using (auth.uid() = sender_id or auth.uid() = receiver_id)
+  with check (auth.uid() = sender_id or auth.uid() = receiver_id);

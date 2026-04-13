@@ -22,6 +22,15 @@ export interface WorkoutLog {
   created_at: string
 }
 
+export interface WorkoutFeedback {
+  id: string
+  workout_id: string
+  doctor_id: string
+  patient_id: string
+  comment: string
+  created_at: string
+}
+
 export interface PredictionHistory {
   id: string
   patient_id: string
@@ -55,6 +64,18 @@ export interface MedicationLog {
   time_of_day: string
   start_date?: string
   notes?: string
+  prescribed_by?: string | null
+  prescribed_by_name?: string | null
+  is_prescribed?: boolean
+  created_at: string
+}
+
+export interface Message {
+  id: string
+  sender_id: string
+  receiver_id: string
+  content: string
+  read: boolean
   created_at: string
 }
 

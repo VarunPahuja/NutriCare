@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Select,
   SelectContent,
@@ -33,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { fetchWorkoutDataFromCSV, saveWorkout, getWorkouts } from '@/services/workoutService';
 import { supabase } from '@/lib/supabase';
+import type { Profile, WorkoutFeedback } from '@/types/database';
 
 export interface Exercise {
   id: number;
@@ -43,13 +45,18 @@ export interface Exercise {
 }
 
 export interface WorkoutSession {
-  id: number;
+  id: string | number;
   date: string;
   type: string;
-  duration: number;
-  exercises: Exercise[];
+  duration?: number;
+  duration_minutes?: number;
+  exercises?: Exercise[];
   comment?: string;
 }
+
+type WorkoutFeedbackRow = WorkoutFeedback & {
+  doctor?: Pick<Profile, 'full_name'> | null;
+};
 
 const WORKOUT_HISTORY_KEY = 'nutricare_workout_history';
 
@@ -62,6 +69,7 @@ const TrackWorkout = () => {
     { id: 2, name: 'Bench Press', sets: 3, reps: 10, weight: 155 },
   ]);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
+  const [workoutFeedback, setWorkoutFeedback] = useState<Record<string, WorkoutFeedbackRow[]>>({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -86,11 +94,27 @@ const TrackWorkout = () => {
           const supabaseWorkouts = await getWorkouts(session.user.id);
           if (supabaseWorkouts.length > 0) {
             setWorkoutHistory(supabaseWorkouts as unknown as WorkoutSession[]);
+            const feedbackEntries = await Promise.all(
+              supabaseWorkouts.map(async (workout) => {
+                const { data: feedback } = await supabase
+                  .from('workout_feedback')
+                  .select('*, doctor:profiles!doctor_id(full_name)')
+                  .eq('workout_id', workout.id)
+                  .order('created_at', { ascending: true });
+
+                return [
+                  workout.id,
+                  (feedback || []) as WorkoutFeedbackRow[],
+                ] as const;
+              })
+            );
+            setWorkoutFeedback(Object.fromEntries(feedbackEntries));
             return;
           }
         }
       }
       // Fallback: local storage history
+      setWorkoutFeedback({});
       const savedHistory = localStorage.getItem(WORKOUT_HISTORY_KEY);
       if (savedHistory) {
         try {
@@ -131,29 +155,47 @@ const TrackWorkout = () => {
   };
 
   const handleSaveWorkout = async () => {
-    const newWorkout: WorkoutSession = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      type: workoutType,
-      duration: timerSeconds,
-      exercises: [...exercises]
-    };
-
-    const updatedHistory = [...workoutHistory, newWorkout];
-    setWorkoutHistory(updatedHistory);
-
     if (isAuthenticated) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        await saveWorkout({
+        const saved = await saveWorkout({
           patient_id: session.user.id,
           type: workoutType,
           duration_minutes: Math.floor(timerSeconds / 60),
           intensity: 'medium',
           date: new Date().toISOString().split('T')[0],
         });
+        if (saved) {
+          const refreshedWorkouts = await getWorkouts(session.user.id);
+          setWorkoutHistory(refreshedWorkouts as unknown as WorkoutSession[]);
+          const feedbackEntries = await Promise.all(
+            refreshedWorkouts.map(async (workout) => {
+              const { data: feedback } = await supabase
+                .from('workout_feedback')
+                .select('*, doctor:profiles!doctor_id(full_name)')
+                .eq('workout_id', workout.id)
+                .order('created_at', { ascending: true });
+
+              return [
+                workout.id,
+                (feedback || []) as WorkoutFeedbackRow[],
+              ] as const;
+            })
+          );
+          setWorkoutFeedback(Object.fromEntries(feedbackEntries));
+        }
       }
     } else {
+      const newWorkout: WorkoutSession = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        type: workoutType,
+        duration: timerSeconds,
+        exercises: [...exercises],
+      };
+
+      const updatedHistory = [...workoutHistory, newWorkout];
+      setWorkoutHistory(updatedHistory);
       localStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updatedHistory));
       toast.success("Workout saved successfully!", {
         description: `${exercises.length} exercises recorded in ${formatTime(timerSeconds)}. Data available in My Insights.`,
@@ -379,6 +421,57 @@ const TrackWorkout = () => {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="fitness-card mt-6">
+          <CardHeader>
+            <CardTitle>Workout History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {workoutHistory.length === 0 ? (
+              <p className="text-sm text-gray-400">No workouts saved yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {workoutHistory.map((workout) => {
+                  const feedbackItems = workoutFeedback[String(workout.id)] || [];
+                  const durationMinutes = workout.duration_minutes ?? workout.duration ?? 0;
+
+                  return (
+                    <div key={String(workout.id)} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold capitalize">{workout.type} Workout</p>
+                          <p className="text-xs text-gray-400">{new Date(workout.date).toLocaleDateString()} · {durationMinutes} min</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 border-t border-white/10 pt-4">
+                        <p className="text-sm font-medium text-gray-300 mb-3">Doctor Feedback</p>
+                        {feedbackItems.length === 0 ? null : (
+                          <div className="space-y-3">
+                            {feedbackItems.map((item) => (
+                              <div key={item.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-black/10 p-3">
+                                <Avatar className="h-9 w-9 shrink-0">
+                                  <AvatarFallback className="bg-fitness-primary/20 text-fitness-primary text-xs font-bold">
+                                    {item.doctor?.full_name?.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'D'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-fitness-primary">Dr. {item.doctor?.full_name || 'Doctor'}</p>
+                                  <p className="text-sm text-gray-300 whitespace-pre-wrap">{item.comment}</p>
+                                  <p className="text-xs text-gray-500 mt-1">{new Date(item.created_at).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

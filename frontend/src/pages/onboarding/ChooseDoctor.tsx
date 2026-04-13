@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import type { Profile } from '@/types/database';
+import type { DoctorPatient, Profile } from '@/types/database';
 import { Loader2, UserX } from 'lucide-react';
 
-type RequestStatus = 'pending' | 'accepted' | 'rejected';
-type DoctorRequest = { doctor_id: string; status: RequestStatus };
+type DoctorRequest = Pick<DoctorPatient, 'doctor_id' | 'status'>;
 
 const ChooseDoctor = () => {
   const navigate = useNavigate();
@@ -16,16 +15,18 @@ const ChooseDoctor = () => {
   const [loading, setLoading] = useState(true);
   const [submittingDoctorId, setSubmittingDoctorId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!profile) return;
+    if (!profile) return;
 
+    const fetchData = async () => {
       setLoading(true);
-      const [doctorRes, requestRes] = await Promise.all([
+
+      const [doctorsRes, requestsRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('*')
+          .select('id, full_name, specialty, bio, role')
           .eq('role', 'doctor'),
         supabase
           .from('doctor_patient')
@@ -33,89 +34,52 @@ const ChooseDoctor = () => {
           .eq('patient_id', profile.id),
       ]);
 
-      setDoctors((doctorRes.data || []) as Profile[]);
-      setRequests((requestRes.data || []) as DoctorRequest[]);
+      console.log('Doctors found:', doctorsRes.data, 'Error:', doctorsRes.error);
+      console.log('Requests:', requestsRes.data, 'Error:', requestsRes.error);
+
+      setDoctors((doctorsRes.data || []) as Profile[]);
+      setRequests((requestsRes.data || []) as DoctorRequest[]);
       setLoading(false);
     };
 
     fetchData();
   }, [profile]);
 
-  const requestMap = useMemo(() => {
-    const map = new Map<string, RequestStatus>();
-    requests.forEach((request) => {
-      map.set(request.doctor_id, request.status);
-    });
-    return map;
-  }, [requests]);
+  const getRequestStatus = (doctorId: string) => {
+    const request = requests.find((item) => item.doctor_id === doctorId);
+    return request?.status || null;
+  };
 
-  const handleSendRequest = async (doctor: Profile) => {
+  const sendRequest = async (doctorId: string) => {
     if (!profile) return;
-    setSubmittingDoctorId(doctor.id);
+    setSubmittingDoctorId(doctorId);
     setNotice('');
+    setError('');
 
     const { error } = await supabase.from('doctor_patient').upsert(
       {
-        doctor_id: doctor.id,
+        doctor_id: doctorId,
         patient_id: profile.id,
         status: 'pending',
       },
       { onConflict: 'doctor_id,patient_id' }
     );
 
-    if (!error) {
-      setRequests((prev) => {
-        const others = prev.filter((item) => item.doctor_id !== doctor.id);
-        return [...others, { doctor_id: doctor.id, status: 'pending' }];
-      });
-      setNotice(`Request sent to Dr. ${doctor.full_name}`);
-    } else {
-      setNotice(error.message);
+    if (error) {
+      console.error('Request error:', error);
+      setError('Failed to send request: ' + error.message);
+      setSubmittingDoctorId(null);
+      return;
     }
 
+    const { data } = await supabase
+      .from('doctor_patient')
+      .select('*')
+      .eq('patient_id', profile.id);
+
+    setRequests((data || []) as DoctorRequest[]);
+    setNotice('Request sent successfully.');
     setSubmittingDoctorId(null);
-  };
-
-  const renderStatusAction = (doctor: Profile) => {
-    const status = requestMap.get(doctor.id);
-
-    if (!status) {
-      return (
-        <button
-          onClick={() => handleSendRequest(doctor)}
-          className="w-full mt-4 rounded-lg bg-fitness-primary px-4 py-2 text-sm font-semibold text-white hover:bg-fitness-primary/90 transition"
-          disabled={submittingDoctorId === doctor.id}
-        >
-          {submittingDoctorId === doctor.id ? 'Sending...' : 'Send Request'}
-        </button>
-      );
-    }
-
-    if (status === 'pending') {
-      return (
-        <div className="w-full mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm text-gray-300 text-center">
-          Request Sent
-        </div>
-      );
-    }
-
-    if (status === 'accepted') {
-      return (
-        <div className="w-full mt-4 rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300 text-center">
-          Your Doctor ✓
-        </div>
-      );
-    }
-
-    return (
-      <button
-        onClick={() => handleSendRequest(doctor)}
-        className="w-full mt-4 rounded-lg bg-fitness-primary px-4 py-2 text-sm font-semibold text-white hover:bg-fitness-primary/90 transition"
-        disabled={submittingDoctorId === doctor.id}
-      >
-        {submittingDoctorId === doctor.id ? 'Sending...' : 'Request Again'}
-      </button>
-    );
   };
 
   return (
@@ -132,6 +96,12 @@ const ChooseDoctor = () => {
         {notice && (
           <div className="mb-6 rounded-lg border border-fitness-primary/30 bg-fitness-primary/10 p-3 text-sm text-center text-gray-200">
             {notice}
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-center text-red-300">
+            {error}
           </div>
         )}
 
@@ -182,7 +152,39 @@ const ChooseDoctor = () => {
                         </p>
                       </div>
                     </div>
-                    {renderStatusAction(doctor)}
+                    {(() => {
+                      const status = getRequestStatus(doctor.id);
+
+                      if (status === 'accepted') {
+                        return <span className="text-green-400 text-sm font-medium">✓ Your Doctor</span>;
+                      }
+
+                      if (status === 'pending') {
+                        return <span className="text-gray-400 text-sm">Request Sent</span>;
+                      }
+
+                      if (status === 'rejected') {
+                        return (
+                          <button
+                            onClick={() => sendRequest(doctor.id)}
+                            className="w-full mt-4 rounded-lg bg-fitness-primary px-4 py-2 text-sm font-semibold text-white hover:bg-fitness-primary/90 transition"
+                            disabled={submittingDoctorId === doctor.id}
+                          >
+                            {submittingDoctorId === doctor.id ? 'Sending...' : 'Request Again'}
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          onClick={() => sendRequest(doctor.id)}
+                          className="w-full mt-4 rounded-lg bg-fitness-primary px-4 py-2 text-sm font-semibold text-white hover:bg-fitness-primary/90 transition"
+                          disabled={submittingDoctorId === doctor.id}
+                        >
+                          {submittingDoctorId === doctor.id ? 'Sending...' : 'Send Request'}
+                        </button>
+                      );
+                    })()}
                   </div>
                 );
               })}

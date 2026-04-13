@@ -29,6 +29,8 @@ import AssistantPage from "./pages/Assistant";
 
 // Onboarding
 import ChooseDoctor from "./pages/onboarding/ChooseDoctor";
+import MyDoctors from "./pages/patient/MyDoctors";
+import Messages from "./pages/Messages";
 
 // Doctor pages
 import DoctorPatients from "./pages/doctor/DoctorPatients";
@@ -64,6 +66,14 @@ const App = () => {
               element={
                 <ProtectedRoute roleRequired="patient">
                   <ChooseDoctor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-doctors"
+              element={
+                <ProtectedRoute roleRequired="patient">
+                  <MyDoctors />
                 </ProtectedRoute>
               }
             />
@@ -142,6 +152,22 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages/:otherId"
+              element={
+                <ProtectedRoute>
+                  <Messages />
                 </ProtectedRoute>
               }
             />

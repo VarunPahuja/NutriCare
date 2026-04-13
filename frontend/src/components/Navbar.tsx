@@ -1,17 +1,20 @@
-import React from 'react';
-import { Bell, Search, Activity, BarChart2, Users, LogOut, Stethoscope, Pill } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Bell, Search, Activity, BarChart2, Users, LogOut, Stethoscope, Pill, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 const patientTabs = [
   { name: "Dashboard", path: "/dashboard" },
+  { name: "My Doctors", path: "/my-doctors", icon: Stethoscope },
   { name: "AI Prediction", path: "/prediction" },
   { name: "AI Assistant", path: "/assistant" },
   { name: "My Insights", path: "/my-insights", icon: BarChart2 },
   { name: "Track Workout", path: "/track-workout", icon: Activity },
   { name: "Medications", path: "/medications", icon: Pill },
+  { name: "Messages", path: "/messages", icon: MessageSquare },
   { name: "Progress", path: "/progress" },
   { name: "Nutrition Tips", path: "/nutrition-tips" },
   { name: "Settings", path: "/settings" },
@@ -20,6 +23,7 @@ const patientTabs = [
 const doctorTabs = [
   { name: "Dashboard", path: "/dashboard" },
   { name: "My Patients", path: "/doctor/patients", icon: Users },
+  { name: "Messages", path: "/messages", icon: MessageSquare },
   { name: "Settings", path: "/settings" },
 ];
 
@@ -27,8 +31,35 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, loading, signOut } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const tabs = profile?.role === 'doctor' ? doctorTabs : patientTabs;
+
+  useEffect(() => {
+    if (!profile) return;
+
+    let active = true;
+
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', profile.id)
+        .eq('read', false);
+
+      if (active) {
+        setUnreadCount(count || 0);
+      }
+    };
+
+    fetchUnread();
+    const interval = window.setInterval(fetchUnread, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [profile, location.pathname]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -72,8 +103,11 @@ const Navbar = () => {
         {/* Navigation tabs */}
         <div className="hidden md:flex items-center space-x-1">
           {tabs.map((tab) => {
-            const isActive = location.pathname === tab.path;
+            const isActive = tab.path === '/messages'
+              ? location.pathname.startsWith('/messages')
+              : location.pathname === tab.path;
             const Icon = tab.icon;
+            const showUnreadBadge = tab.path === '/messages' && unreadCount > 0;
 
             return (
               <Button
@@ -86,8 +120,17 @@ const Navbar = () => {
                 }`}
                 asChild
               >
-                <Link to={tab.path} className="flex items-center gap-1">
-                  {Icon && <Icon className="h-4 w-4" />}
+                <Link to={tab.path} className="flex items-center gap-1 relative">
+                  {Icon && (
+                    <span className="relative inline-flex">
+                      <Icon className="h-4 w-4" />
+                      {showUnreadBadge && (
+                        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </span>
+                  )}
                   {tab.name}
                 </Link>
               </Button>
