@@ -6,8 +6,11 @@ import joblib
 import pandas as pd
 import os
 import json
+import traceback
 from pathlib import Path
 from typing import Optional, Dict, Any
+from groq import Groq
+from dotenv import load_dotenv
 
 app = FastAPI()
 app.add_middleware(
@@ -25,6 +28,19 @@ class ChatRequest(BaseModel):
 
 
 BASE_DIR = Path(__file__).resolve().parent
+
+# Load .env from backend/ first, then fall back to root
+load_dotenv(dotenv_path=BASE_DIR / ".env")
+load_dotenv(dotenv_path=BASE_DIR.parent / ".env")
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+print(f"Groq key loaded: {bool(GROQ_API_KEY)}")
+
+groq_client = None
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+
 MODEL_PATH = BASE_DIR / "models" / "best_model_Advanced.joblib"
 model = joblib.load(MODEL_PATH)
 
@@ -59,33 +75,67 @@ async def predict(request: Request):
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    if not request.message.strip():
-        raise HTTPException(status_code=400, detail="Message is required")
+    if not groq_client:
+        raise HTTPException(status_code=500, detail="Groq API key not configured")
 
-    # Placeholder deterministic assistant text; OPENAI_API_KEY can be plugged in later server-side.
-    goal = (request.context or {}).get("goal")
-    activity = (request.context or {}).get("activity")
-    conditions = (request.context or {}).get("conditions")
+    system_prompt = """You are a clinical nutrition assistant for NutriCare, a health platform for patients in India.
 
-    points = [
-        "Focus meals around lean protein, vegetables, and high-fiber carbs.",
-        "Keep hydration and meal timing consistent throughout the week.",
-        "Track progress weekly and adjust portions gradually, not aggressively.",
-    ]
-    if goal:
-        points.append(f"Align intake to your goal: {goal}.")
-    if activity:
-        points.append(f"Fuel around activity level: {activity}.")
-    if conditions:
-        points.append(f"Given conditions ({conditions}), verify major changes with your doctor.")
+Rules:
+- Always give advice specific to the user's health conditions, goals, and location
+- Suggest Indian foods and meals where relevant (dal, roti, sabzi, idli, etc.)
+- If the user has diabetes: emphasize low glycemic index foods, avoid sugar, limit white rice/maida
+- If the user has hypertension: emphasize low sodium, potassium-rich foods
+- If the user has heart disease: emphasize omega-3, low saturated fat
+- Reference their workout data and medication if provided in context
+- Be specific, not generic - no generic "eat protein, carbs and fat" advice
+- Keep responses under 200 words
+- Format with bullet points for readability
+"""
 
-    response_text = "\n".join([f"- {point}" for point in points])
+    user_message = ""
+    if request.context:
+        user_message += "=== Patient Profile ===\n"
+        if request.context.get('name'):
+            user_message += f"Name: {request.context['name']}\n"
+        if request.context.get('age'):
+            user_message += f"Age: {request.context['age']}\n"
+        if request.context.get('weight'):
+            user_message += f"Weight: {request.context['weight']} kg\n"
+        if request.context.get('activity'):
+            user_message += f"Activity level: {request.context['activity']}\n"
+        if request.context.get('goal'):
+            user_message += f"Health goal: {request.context['goal']}\n"
+        if request.context.get('conditions'):
+            user_message += f"Medical conditions: {request.context['conditions']}\n"
+        if request.context.get('location'):
+            user_message += f"Location: {request.context['location']}\n"
+        if request.context.get('medications'):
+            user_message += f"Current medications: {request.context['medications']}\n"
+        if request.context.get('recent_workouts'):
+            user_message += f"Recent workouts: {request.context['recent_workouts']}\n"
+        if request.context.get('last_prediction'):
+            user_message += f"Last nutrition target: {request.context['last_prediction']}\n"
+        user_message += "======================\n\n"
+
+    user_message += f"Patient question: {request.message}"
 
     def generate():
         try:
-            for line in response_text.split("\n"):
-                yield f"data: {json.dumps({'content': line + '\\n'})}\n\n"
+            stream = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                stream=True,
+                max_tokens=300,
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    delta = chunk.choices[0].delta.content
+                    yield f"data: {json.dumps({'content': delta})}\n\n"
         except Exception as e:
+            traceback.print_exc()
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
@@ -95,5 +145,6 @@ async def chat(request: ChatRequest):
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
-        },
+            "Access-Control-Allow-Origin": "*",
+        }
     )

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import Navbar from '@/components/Navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Loader2, MessageCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 type ChatRole = 'user' | 'assistant';
 
@@ -22,6 +24,7 @@ const AssistantPage = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [userContext, setUserContext] = useState<Record<string, any>>({});
 
   // Profile state
   const [age, setAge] = useState('');
@@ -39,6 +42,69 @@ const AssistantPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!profile) return;
+
+    const buildContext = async () => {
+      const { data: prediction } = await supabase
+        .from('prediction_history')
+        .select('result, inputs')
+        .eq('patient_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: workouts } = await supabase
+        .from('workout_logs')
+        .select('type, duration_minutes, intensity, date')
+        .eq('patient_id', profile.id)
+        .order('date', { ascending: false })
+        .limit(3);
+
+      const { data: meds } = await supabase
+        .from('medication_logs')
+        .select('name, dosage, frequency')
+        .eq('patient_id', profile.id)
+        .limit(5);
+
+      const ctx: Record<string, any> = {
+        name: profile.full_name,
+      };
+
+      if (prediction?.inputs) {
+        const inputs = prediction.inputs as any;
+        if (inputs.Age) ctx.age = inputs.Age;
+        if (inputs.Weight) ctx.weight = inputs.Weight;
+        if (inputs.Activity) ctx.activity = inputs.Activity;
+        if (inputs.Goal) ctx.goal = inputs.Goal;
+        if (inputs.Disease && inputs.Disease !== 'None') ctx.conditions = inputs.Disease;
+      }
+
+      if (prediction?.result) {
+        const r = prediction.result as any;
+        ctx.last_prediction = `${Math.round(r.calories)} kcal, ${Math.round(r.protein)}g protein, ${Math.round(r.carbs)}g carbs, ${Math.round(r.fat)}g fat`;
+      }
+
+      if (workouts && workouts.length > 0) {
+        ctx.recent_workouts = workouts
+          .map((workout) => `${workout.type} (${workout.duration_minutes}min, ${workout.intensity})`)
+          .join(', ');
+      }
+
+      if (meds && meds.length > 0) {
+        ctx.medications = meds
+          .map((medication) => `${medication.name} ${medication.dosage}`)
+          .join(', ');
+      }
+
+      ctx.location = 'India';
+
+      setUserContext(ctx);
+    };
+
+    buildContext();
+  }, [profile]);
+
   const handleConditionChange = (condition: string, checked: boolean) => {
     if (checked) {
       setConditions(prev => [...prev, condition]);
@@ -55,13 +121,14 @@ const AssistantPage = () => {
     const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
-    const userContext = {
-      age: age ? parseInt(age, 10) : null,
-      weight: weight ? parseInt(weight, 10) : null,
-      activity,
-      goal,
-      conditions,
-      name: profile?.full_name || null,
+    const mergedContext = {
+      ...userContext,
+      age: age ? parseInt(age, 10) : userContext.age,
+      weight: weight ? parseInt(weight, 10) : userContext.weight,
+      activity: activity || userContext.activity,
+      goal: goal || userContext.goal,
+      conditions: conditions.length > 0 ? conditions.join(', ') : userContext.conditions,
+      name: profile?.full_name || userContext.name || null,
     };
 
     try {
@@ -69,7 +136,7 @@ const AssistantPage = () => {
       const response = await fetch(`${apiBase}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, context: userContext }),
+        body: JSON.stringify({ message, context: mergedContext }),
       });
 
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -307,7 +374,7 @@ const AssistantPage = () => {
                 <CardContent className="space-y-3 max-h-[430px] overflow-y-auto">
                   {messages.map((message, index) => {
                     const isAssistant = message.role === 'assistant';
-                    const isLast = index === messages.length - 1;
+                    const isLastMessage = index === messages.length - 1;
                     return (
                       <div
                         key={`${message.timestamp.getTime()}-${index}`}
@@ -320,10 +387,32 @@ const AssistantPage = () => {
                         <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
                           {isAssistant ? 'Assistant' : 'You'}
                         </p>
-                        <p className="text-white whitespace-pre-wrap leading-relaxed">
-                          {message.content}
-                          {loading && isAssistant && isLast ? '▋' : ''}
-                        </p>
+                        {isAssistant ? (
+                          <div className="prose prose-invert prose-sm max-w-none">
+                            <ReactMarkdown
+                              components={{
+                                p: ({ children }) => <p className="mb-2 last:mb-0 text-gray-100">{children}</p>,
+                                ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                                li: ({ children }) => <li className="text-gray-200">{children}</li>,
+                                strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                                h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
+                                h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2">{children}</h2>,
+                                h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-1">{children}</h3>,
+                                code: ({ children }) => <code className="bg-white/10 rounded px-1 py-0.5 text-xs text-green-300">{children}</code>,
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                            {isLastMessage && loading && (
+                              <span className="inline-block w-2 h-4 bg-fitness-primary ml-0.5 animate-pulse" />
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-white whitespace-pre-wrap leading-relaxed">
+                            {message.content}
+                          </p>
+                        )}
                       </div>
                     );
                   })}

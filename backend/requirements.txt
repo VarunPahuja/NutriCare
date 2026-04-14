@@ -4,4 +4,6 @@ joblib
 numpy
 pandas
 scikit-learn
-catboost    
+catboost
+groq
+python-dotenv
