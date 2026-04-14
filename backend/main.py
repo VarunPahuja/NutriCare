@@ -7,6 +7,9 @@ import pandas as pd
 import os
 import json
 import traceback
+import urllib.parse
+import urllib.request
+import urllib.error
 from pathlib import Path
 from typing import Optional, Dict, Any
 from groq import Groq
@@ -35,7 +38,9 @@ load_dotenv(dotenv_path=BASE_DIR.parent / ".env")
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY") or os.getenv("VITE_NEWS_API_KEY")
 print(f"Groq key loaded: {bool(GROQ_API_KEY)}")
+print(f"News API key loaded: {bool(NEWS_API_KEY)}")
 
 groq_client = None
 if GROQ_API_KEY:
@@ -48,6 +53,42 @@ model = joblib.load(MODEL_PATH)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/news")
+async def news(q: str):
+    if not NEWS_API_KEY:
+        raise HTTPException(status_code=500, detail="News API key not configured")
+
+    params = urllib.parse.urlencode(
+        {
+            "q": q,
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": 12,
+            "apiKey": NEWS_API_KEY,
+        }
+    )
+    url = f"https://newsapi.org/v2/everything?{params}"
+
+    try:
+        with urllib.request.urlopen(url, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        try:
+            body = error.read().decode("utf-8")
+            parsed = json.loads(body)
+            message = parsed.get("message") or body
+        except Exception:
+            message = str(error)
+        raise HTTPException(status_code=error.code, detail=message)
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"News fetch failed: {str(error)}")
+
+    if payload.get("status") != "ok":
+        raise HTTPException(status_code=502, detail=payload.get("message", "News API returned an error"))
+
+    return {"articles": payload.get("articles", [])}
 
 
 @app.post("/predict")

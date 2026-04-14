@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExternalLink, RefreshCw, Newspaper } from 'lucide-react';
 
-const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY as string | undefined;
-
 interface Article {
   title: string;
   description: string | null;
@@ -142,29 +140,24 @@ const NutritionTips = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState(0);
-  const noApiKey = !NEWS_API_KEY;
+  const apiBase = import.meta.env.BACKEND_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
   const fetchArticles = useCallback(async (query: string) => {
-    if (noApiKey) {
-      setArticles(STATIC_ARTICLES);
-      return;
-    }
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(
-        `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=12&apiKey=${NEWS_API_KEY}`
-      );
+      const res = await fetch(`${apiBase}/news?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to fetch articles');
       setArticles(data.articles || []);
     } catch (err) {
-      setError('Could not load articles. Please try again later.');
+      setArticles(STATIC_ARTICLES);
+      setError('Could not load live articles, showing fallback tips instead.');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [noApiKey]);
+  }, [apiBase]);
 
   useEffect(() => {
     fetchArticles(CATEGORIES[activeCategory].query);
@@ -182,13 +175,6 @@ const NutritionTips = () => {
           <h1 className="text-3xl font-bold gradient-text">Nutrition Tips &amp; Articles</h1>
           <p className="text-gray-400 mt-1">Stay up-to-date with the latest in health and nutrition.</p>
         </div>
-
-        {noApiKey && (
-          <div className="mb-6 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 flex items-center gap-2 text-sm text-amber-400">
-            <Newspaper className="w-4 h-4 flex-shrink-0" />
-            Add <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-xs">VITE_NEWS_API_KEY</code> to your .env to enable live articles
-          </div>
-        )}
 
         {/* Category tabs */}
         <Tabs
